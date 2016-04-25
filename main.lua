@@ -25,8 +25,10 @@ opt = lapp[[
    -m,--momentum              (default 0.9)         momentum
    --epoch_step               (default 25)          epoch step
    --max_epoch                (default 300)           maximum number of iterations
-   --backend                  (default nn)            backend
-   --type                     (default float)          cuda/float/cl
+  
+	--backend                  (default nn)           	backend	
+	--type                     (default float)          	cuda/float/cl
+
    	-g,--gen_data			(default no)		whether to generate data file 
 	-v,--validation			(default 6)			number of drivers to use in validation set
 	-d,--datafile			(default p.t7)		file name of the data provider
@@ -42,8 +44,8 @@ width = 64
 provider = 0
 if opt.gen_data ~= "no" then 
 	-- TODO move most of this to provider.lua
-	num_train = 1000
-	provider = Provider("/home/tc/imgs/", num_train, width, height)
+	num_train = -1
+	provider = Provider("/home/tc/data/distracted-drivers/", num_train, width, height)
 	provider:normalize()
 
 	-- Setup bettertraining/testing sets
@@ -116,7 +118,10 @@ function cast(t)
    end
 end
 
-
+provider.trainData = cast(provider.trainData)
+provider.validData = cast(provider.validData)
+provider.trainLabel = cast(provider.trainLabel)
+provider.validLabel = cast(provider.validLabel)
 
 
 
@@ -133,13 +138,15 @@ model:get(2).updateGradInput = function(input) return end
 
 if opt.backend == 'cudnn' then
    require 'cudnn'
-   cudnn.convert(model:get(3), cudnn)
+   cudnn.convert(model:get(2), cudnn)
 end
 
 print(model)
 
 -- get the parameters and gradients
 parameters, gradParameters = model:getParameters()
+parameters = cast(parameters)
+gradParameters = cast(gradParameters)
 
 -- set up the confusion matrix
 confusion = optim.ConfusionMatrix(10)
@@ -148,6 +155,7 @@ confusion = optim.ConfusionMatrix(10)
 --criterion = nn.CrossEntropyCriterion()
 criterion = nn.ClassNLLCriterion()
 criterion = criterion:float()
+criterion = cast(criterion)
 
 -- set up the optimizer parameters
 optimState = {
