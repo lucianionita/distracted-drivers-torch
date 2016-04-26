@@ -48,37 +48,51 @@ if opt.gen_data ~= "no" then
 	print (c.blue"Creating datasets...")
 	provider.labels = provider.labels+1
 
-	provider.trainData = {}
-	provider.trainLabel = {}
 	provider.trainDriver= {}
-	provider.validData = {}
-	provider.validLabel = {}
 	provider.validDriver= {}
+	provider.trainData_n = 0
+	provider.validData_n = 0
+
+	train_idx = 1
+	valid_idx = 1
+
 	for i, id in ipairs(provider.driverId) do
-	    xlua.progress(i, #provider.driverId)
+		if id <= provider.drivers[20] then
+			provider.trainData_n = provider.trainData_n + 1
+		else
+			provider.validData_n = provider.validData_n + 1
+		end
+	end
+	
+	provider.trainData = torch.Tensor(provider.trainData_n, 3, height, width)
+	provider.validData = torch.Tensor(provider.validData_n, 3, height, width)
+
+	provider.trainLabel = torch.Tensor(provider.trainData_n)
+	provider.validLabel = torch.Tensor(provider.validData_n)
+	
+	provider.trainLabel:zero()
+	provider.validLabel:zero()
+	provider.trainData:zero()
+	provider.validData:zero()
+
+	for i, id in ipairs(provider.driverId) do
+	    	xlua.progress(i, #provider.driverId)
 		-- TODO: find a better way to make this split 
 		if id <= provider.drivers[20] then
 			-- training set
-			table.insert(provider.trainData, provider.data[i]:reshape(1,3,width, height):double())
-			table.insert(provider.trainLabel, provider.labels[i])
+			provider.trainData[{{train_idx},{},{},{}}] = provider.data[i]
+			provider.trainLabel[train_idx] = provider.labels[i]
 			table.insert(provider.trainDriver, provider.driverId[i])
+			train_idx = train_idx + 1
 		else
-			-- test set
-			table.insert(provider.validData, provider.data[i]:reshape(1,3,width, height):double())
-			table.insert(provider.validLabel, provider.labels[i])
+			-- validation set
+			provider.validData[{{valid_idx},{},{},{}}] = provider.data[i]
+			provider.validLabel[valid_idx] = provider.labels[i]
 			table.insert(provider.validDriver, provider.driverId[i])
+			valid_idx = valid_idx + 1
 		end
-	
-		collectgarbage()
 	end
 
-	print (c.blue"Converting to float...")
-	provider.trainData = torch.cat(provider.trainData, 1):float()
-	provider.trainLabel= torch.Tensor(provider.trainLabel):float()
-	
-	provider.validData = torch.cat(provider.validData, 1):float()
-	provider.validLabel= torch.Tensor(provider.validLabel):float()
-	
 	collectgarbage()
 	print (c.blue"Saving file...")
 	torch.save(opt.datafile, provider)
