@@ -39,7 +39,7 @@ width = 64
 provider = 0
 if opt.gen_data ~= "no" then 
 	-- TODO move most of this to provider.lua
-	num_train = -1
+	num_train = 100
 	provider = Provider("/home/tc/data/distracted-drivers/", num_train, height, width, false)
 	provider:normalize()
 
@@ -78,6 +78,7 @@ if opt.gen_data ~= "no" then
 	for i, id in ipairs(provider.driverId) do
 	    	xlua.progress(i, #provider.driverId)
 		-- TODO: find a better way to make this split 
+		print (i, id, train_idx, valid_idx, id <= provider.drivers[20])
 		if id <= provider.drivers[20] then
 			-- training set
 			provider.trainData[{{train_idx},{},{},{}}] = provider.data[i]
@@ -193,6 +194,7 @@ function train()
 	local indices = torch.randperm(provider.trainData:size(1)):long():split(opt.batchSize)
 
 	local tic = torch.tic()
+	local total_loss = 0
 	-- train on each batch
 	for t,v in ipairs(indices) do
 		-- update progress
@@ -214,7 +216,7 @@ function train()
       			local outputs = model:forward(inputs)
       			local f = criterion:forward(outputs, targets)
       			local df_do = criterion:backward(outputs, targets)
-	
+			total_loss = total_loss + f
       			model:backward(inputs, df_do)
       			confusion:batchAdd(outputs, targets)
       			
@@ -230,7 +232,8 @@ function train()
 	-- update confusion matrix
 	confusion:updateValids()
 	print(('Train accuracy: '..c.cyan'%.2f'..' %%\t time: %.2f s'):format(
-    	confusion.totalValid * 100, torch.toc(tic)))
+    		confusion.totalValid * 100, torch.toc(tic)))
+	print(('Train     loss: '..c.cyan'%.6f'):format(total_loss/provider.trainData_n))
 
 	train_acc = confusion.totalValid * 100
 	confusion:zero()	
@@ -245,17 +248,25 @@ function validate()
 	model:evaluate()
 	print(c.blue '==>'.." validating")
 	local bs = opt.batchSize
+	local total_loss = 0
 	for i=1,provider.validData:size(1),bs do
 		if i + bs > provider.validData:size(1)-1 then
 			bs = provider.validData:size(1)-i+1
-		end
-		local outputs = model:forward(provider.validData:narrow(1,i,bs))
-    	confusion:batchAdd(outputs, provider.validLabel:narrow(1,i,bs))
-  	end
+		end	
+
+		local data = provider.validData:narrow(1,i,bs)
+		local targets = provider.validLabel:narrow(1,i,bs)
+
+		local outputs = model:forward(data)
+		local loss = criterion:forward(outputs, targets)
+	   	confusion:batchAdd(outputs, targets)
+  		total_loss = total_loss + loss
+	end
 
 	confusion:updateValids()
   	print(('Valid accuracy: '..c.cyan'%.2f'):format(confusion.totalValid * 100))
-    print(confusion)
+  	print(('Valid loss: '..c.cyan'%.6f'):format(total_loss/provider.validData_n))
+    	print(confusion)
   	confusion:zero()
 end
 
