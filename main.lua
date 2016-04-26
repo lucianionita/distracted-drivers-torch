@@ -1,9 +1,5 @@
 -- To create a new data file, this is what you need to do:
--- TODO add cuda support
 -- TODO add method to create upload submission
--- TODO add NLL criterion
--- TODO check fb's NLL criterion
--- TODO initialize the damn model properly
 -- TODO display NLL instead of accuracy
 require 'provider'
 require 'xlua'
@@ -16,24 +12,23 @@ c = require 'trepl.colorize'
 -- Parse the command line arguments
 --------------------------------------
 opt = lapp[[
-	--model		(default linear)	model name
-	-s,--save       (default "logs")      	subdirectory to save logs
-   -b,--batchSize             (default 2)          batch size
-   -r,--learningRate          (default 1)        learning rate
-   --learningRateDecay        (default 1e-7)      learning rate decay
-   --weightDecay              (default 0.0005)      weightDecay
-   -m,--momentum              (default 0.9)         momentum
-   --epoch_step               (default 25)          epoch step
-   --max_epoch                (default 300)           maximum number of iterations
-  
-	--backend                  (default nn)           	backend	
-	--type                     (default float)          	cuda/float/cl
-
-   	-g,--gen_data			(default no)		whether to generate data file 
-	-v,--validation			(default 6)			number of drivers to use in validation set
-	-d,--datafile			(default p.t7)		file name of the data provider
+	--model 	(default linear_logsoftmax) 	model name
+	-b,--batchSize 	(default 2) 			batch size
+ 	-r,--learningRate 	(default 1) 		learning rate
+ 	--learningRateDecay 	(default 1e-7) 		learning rate decay
+	
+	-s,--save 	(default "logs") 		subdirectory to save logs
+	-S,--submission	(default no)			generate(overwrites) submission.csv file
+ --weightDecay (default 0.0005) weightDecay
+ -m,--momentum (default 0.9) momentum
+ --epoch_step (default 25) epoch step
+ --max_epoch (default 300) maximum number of iterations
+ --backend (default nn) backend 
+ --type (default float) cuda/float/cl
+ -g,--gen_data (default no) whether to generate data file 
+ -v,--validation (default 6) number of drivers to use in validation set
+ -d,--datafile (default p.t7) file name of the data provider
 ]]
--- TODO find a better way to handle data than gen_data and skip_dataset_creation
 
 
 
@@ -44,8 +39,8 @@ width = 64
 provider = 0
 if opt.gen_data ~= "no" then 
 	-- TODO move most of this to provider.lua
-	num_train = -1
-	provider = Provider("/home/tc/data/distracted-drivers/", num_train, width, height)
+	num_train = 100
+	provider = Provider("/home/tc/data/distracted-drivers/", num_train, height, width)
 	provider:normalize()
 
 	-- Setup bettertraining/testing sets
@@ -102,7 +97,6 @@ provider = torch.load(opt.datafile)
 
 
 -- TODO: move this to an "aux" file
--- TODO: actually start using this
 -- method to change the type of the data, models etc 
 function cast(t)
    if opt.type == 'cuda' then
@@ -125,7 +119,7 @@ provider.validLabel = cast(provider.validLabel)
 
 
 
--- Lonfigure model the model
+-- Configure the model
 ------------------------------------
 -- TODO: Parametrize this with width/height of scaled data
 
@@ -184,43 +178,40 @@ function train()
 	local targets = cast(torch.FloatTensor(opt.batchSize))
 	local indices = torch.randperm(provider.trainData:size(1)):long():split(opt.batchSize)
 
-	-- remove last element so that all the batches have equal size
-	-- TODO figure out why this works
-	--indices[#indices] = nil
-
 	local tic = torch.tic()
 	-- train on each batch
 	for t,v in ipairs(indices) do
 		-- update progress
-    	xlua.progress(t, #indices)
+	    	xlua.progress(t, #indices)
 
 		if v:size(1) ~= opt.batchSize then
 			break
 		end
 		-- set up batch
-    	local inputs = provider.trainData:index(1,v)
-    	-- TODO figure out if this was a bad move
+    		local inputs = provider.trainData:index(1,v)
+	    	-- TODO figure out if this was a bad move
 		-- targets:copy(provider.trainLabel:index(1,v))
 		local targets = provider.trainLabel:index(1,v)
 		-- evaluation function
-    	local feval = function(x)
-      		if x ~= parameters then parameters:copy(x) end      
-      		gradParameters:zero()
-
-      		local outputs = model:forward(inputs)
-      		local f = criterion:forward(outputs, targets)
-      		local df_do = criterion:backward(outputs, targets)
-
-      		model:backward(inputs, df_do)
-      		confusion:batchAdd(outputs, targets)
-      		
-      		-- return criterion output and gradient of the parameters
-      		return f,gradParameters
-    	end
-
+	    	local feval = function(x)
+      			if x ~= parameters then parameters:copy(x) end      
+      			gradParameters:zero()
+	
+      			local outputs = model:forward(inputs)
+      			local f = criterion:forward(outputs, targets)
+      			local df_do = criterion:backward(outputs, targets)
+	
+      			model:backward(inputs, df_do)
+      			confusion:batchAdd(outputs, targets)
+      			
+      			-- return criterion output and gradient of the parameters
+      			return f,gradParameters
+    		end
+	
 		-- one iteration of the optimizer
     	optim.sgd(feval, parameters, optimState)
 	end
+
 
 	-- update confusion matrix
 	confusion:updateValids()
@@ -272,6 +263,8 @@ for i = 1,opt.max_epoch do
     	torch.save(filename, model:clearState())
   	end]]
  end
+
+
 
 
 

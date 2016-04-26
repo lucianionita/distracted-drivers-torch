@@ -6,7 +6,7 @@ local c = require 'trepl.colorize'
 local Provider = torch.class 'Provider'
 
 
-function Provider:__init(folder, n_max, width, height)
+function Provider:__init(folder, n_max, height, width)
 	
 	local img
 
@@ -20,6 +20,7 @@ function Provider:__init(folder, n_max, width, height)
 	self.test = {}
 	self.labels = {}
 	self.driverId = {}
+
 	-- better to just list them here rather than acquire them automatically 
 	self.drivers = {"p002", "p012", "p014", "p015", "p016", "p021", "p022", "p024"
 		, "p026", "p035", "p039", "p041", "p042", "p045", "p047", "p049", "p050"
@@ -83,43 +84,57 @@ function Provider:__init(folder, n_max, width, height)
 
 
 	-- Load training images 
+	
+	local data = torch.Tensor(table.getn(self.data_files), 3, height, width)
+	local test = torch.Tensor(table.getn(self.test_files), 3, height, width)
+
 	print (c.blue"Loadin training images")
 	for i, file in ipairs(self.data_files) do
+		print (i, file)
 		img = image.load(file)		
-		img:resize(3, width, height)
-		img = img:reshape(1, 3, width, height)
+		img:resize(3, height, width)
+		img = img:reshape(1, 3, height, width)
 		table.insert(self.data, img)
-		xlua.progress(i, table.getn(self.data_files))
 		collectgarbage()
+		data[{{i},{},{},{}}] = img
+		xlua.progress(i, table.getn(self.data_files))
+		if math.fmod(i, 100) == 0 then
+			collectgarbage()
+		end
 	end
 	
 	-- Load training images 
 	print (c.blue"Loading test images")
 	for i, file in ipairs(self.test_files) do
 		img = image.load(file)
-		img:resize(3, width, height)
-		img = img:reshape(1, 3, width, height)
+		img:resize(3, height, width)
+		img = img:reshape(1, 3, height, width)
 		table.insert(self.test, img)
+		collectgarbage()
+		test[{{i},{},{},{}}] = img	
 		xlua.progress(i, table.getn(self.test_files))
 		collectgarbage()
 	end
 	
+	self.d_data = data
+	self.d_test = test
 	-- save the number of each examples
-	self.data_n = table.getn(self.data)
-	self.test_n = table.getn(self.test)
+	self.data_n = data:size(1)
+	self.test_n = test:size(1)
 	print (c.blue"Transforming tables to tensors")
 	
 	-- transform tables into Tensors
 	self.data = torch.cat(self.data, 1)
 	self.test = torch.cat(self.test, 1)
-	--self.labels = torch.cat(self.labels)
+	--self.data = data
+	--self.test = test
 	lbls = torch.Tensor(table.getn(self.labels))
 	for i, l in ipairs(self.labels) do
 		lbls[i] = l
 	end
 	self.labels = lbls
 	print ("Done")
-
+	torch.save("t.t7", self)
 end
 
 
