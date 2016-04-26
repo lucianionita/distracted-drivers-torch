@@ -1,6 +1,10 @@
 -- To create a new data file, this is what you need to do:
 -- TODO add method to create upload submission
 -- TODO display NLL instead of accuracy
+--require 'trepl'
+--arg = {}
+--arg[1] = '--gen_data'
+--arg[2] = 'y'
 require 'provider'
 require 'xlua'
 require 'optim'
@@ -39,7 +43,7 @@ width = 64
 provider = 0
 if opt.gen_data ~= "no" then 
 	-- TODO move most of this to provider.lua
-	num_train = 100
+	num_train = 10
 	provider = Provider("/home/tc/data/distracted-drivers/", num_train, height, width, false)
 	provider:normalize()
 
@@ -250,15 +254,20 @@ function validate()
 	local bs = opt.batchSize
 	local total_loss = 0
 	for i=1,provider.validData:size(1),bs do
-		if i + bs > provider.validData:size(1)-1 then
+		if i + bs > provider.validData:size(1)+1 then
 			bs = provider.validData:size(1)-i+1
 		end	
 
 		local data = provider.validData:narrow(1,i,bs)
 		local targets = provider.validLabel:narrow(1,i,bs)
-
 		local outputs = model:forward(data)
 		local loss = criterion:forward(outputs, targets)
+		
+		-- fix for batchsize 1 
+		if bs == 1 then
+			outputs = outputs:reshape(1, outputs:size(1))		
+			targets = targets:reshape(1, targets:size(1))
+		end
 	   	confusion:batchAdd(outputs, targets)
   		total_loss = total_loss + loss
 	end
