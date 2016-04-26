@@ -7,7 +7,7 @@ require 'optim'
 require 'nn'
 require 'provider'
 c = require 'trepl.colorize'
-
+torch.setdefaulttensortype('torch.FloatTensor')
 
 -- Parse the command line arguments
 --------------------------------------
@@ -39,8 +39,8 @@ width = 64
 provider = 0
 if opt.gen_data ~= "no" then 
 	-- TODO move most of this to provider.lua
-	num_train = 100
-	provider = Provider("/home/tc/data/distracted-drivers/", num_train, height, width)
+	num_train = -1
+	provider = Provider("/home/tc/data/distracted-drivers/", num_train, height, width, false)
 	provider:normalize()
 
 	-- Setup bettertraining/testing sets
@@ -230,10 +230,10 @@ end
 function validate()
 	model:evaluate()
 	print(c.blue '==>'.." validating")
-	local bs = 10
+	local bs = opt.batchSize
 	for i=1,provider.validData:size(1),bs do
 		if i + bs > provider.validData:size(1)-1 then
-			break
+			bs = provider.validData:size(1)-i+1
 		end
 		local outputs = model:forward(provider.validData:narrow(1,i,bs))
     	confusion:batchAdd(outputs, provider.validLabel:narrow(1,i,bs))
