@@ -4,9 +4,14 @@ local model = nn.Sequential()
 
 --model:add(nn.View(64*48*3))
 --model:add(nn.Dropout(0.5))
-model:add(nn.SpatialConvolution(3, 16, 11, 11, 1, 1, 5, 5) )
-model:add(nn.View(16*64*48))
-model:add(nn.Linear(16 * (64*48), 10))
+model:add(nn.SpatialConvolution(3, 16, 3, 3, 1, 1, 1, 1))
+model:add(nn.SpatialMaxPooling(2,2,2,2))
+model:add(nn.Dropout(0.5))
+model:add(nn.SpatialConvolution(16, 32, 3, 3, 1, 1, 1, 1))
+model:add(nn.SpatialMaxPooling(2,2,2,2))
+model:add(nn.View(32*64*48/4/4))
+model:add(nn.Dropout(0.5))
+model:add(nn.Linear(32 * (64*48/4/4), 10))
 model:add(nn.LogSoftMax())
 
 --[[initialization from MSR

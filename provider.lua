@@ -68,11 +68,6 @@ function Provider:__init(folder, n_max, height, width, load_test_files)
 	end
 
 	
-	-- Sort train images files
-	-- note that if the structure of the train data remains the same
-	-- the self.labels already correspond properly
-	table.sort(self.data_files, function(a,b) return a<b end)
-	
 
 	-- Get the test image files
 	k = n_max * 10

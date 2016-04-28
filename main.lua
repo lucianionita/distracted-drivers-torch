@@ -1,6 +1,6 @@
 -- To create a new data file, this is what you need to do:
 -- TODO add method to create upload submission
--- TODO display NLL instead of accuracy
+-- TODO add 5-6 models that actually do something
 --require 'trepl'
 --arg = {}
 --arg[1] = '--gen_data'
@@ -17,33 +17,39 @@ torch.setdefaulttensortype('torch.FloatTensor')
 --------------------------------------
 opt = lapp[[
 	--model 	(default linear_logsoftmax) 	model name
-	-b,--batchSize 	(default 2) 			batch size
+	-b,--batchSize 	(default 32) 			batch size
  	-r,--learningRate 	(default 1) 		learning rate
  	--learningRateDecay 	(default 1e-7) 		learning rate decay
 	
 	-s,--save 	(default "logs") 		subdirectory to save logs
 	-S,--submission	(default no)			generate(overwrites) submission.csv file
- --weightDecay (default 0.0005) weightDecay
- -m,--momentum (default 0.9) momentum
- --epoch_step (default 25) epoch step
- --max_epoch (default 300) maximum number of iterations
- --backend (default nn) backend 
- --type (default float) cuda/float/cl
- -g,--gen_data (default no) whether to generate data file 
- -v,--validation (default 6) number of drivers to use in validation set
- -d,--datafile (default p.t7) file name of the data provider
+
+	-g,--gen_data 	(default no) 			whether to generate data file 
+	-d,--datafile 	(default p.t7) 			file name of the data provider
+	-h,--height	(default 48)			height of the input images
+	-w,--width	(default 64)			width of the resized images
+
+	 --weightDecay 	(default 0.0005) 		weightDecay
+	 -m,--momentum 	(default 0.9) 			momentum
+	--epoch_step 	(default 25) 			epoch step
+	--max_epoch 	(default 300) 			maximum number of iterations
+
+ 	--backend (default cudnn) 			backend to be used nn/cudnn
+ 	--type (default cuda) 				cuda/float/cl
+
+	-v,--validation (default 6) 			number of drivers to use in validation set
 ]]
 
 
 
 -- Generate data file if needed
 -----------------------------------------------
-height = 48
-width = 64
+height = opt.height
+width = opt.width
 provider = 0
 if opt.gen_data ~= "no" then 
 	-- TODO move most of this to provider.lua
-	num_train = 10
+	num_train = -1
 	provider = Provider("/home/tc/data/distracted-drivers/", num_train, height, width, false)
 	provider:normalize()
 
@@ -54,6 +60,8 @@ if opt.gen_data ~= "no" then
 
 	provider.trainDriver= {}
 	provider.validDriver= {}
+	provider.trainFile= {}
+	provider.validFile= {}
 	provider.trainData_n = 0
 	provider.validData_n = 0
 
@@ -61,7 +69,7 @@ if opt.gen_data ~= "no" then
 	valid_idx = 1
 
 	for i, id in ipairs(provider.driverId) do
-		if id <= provider.drivers[20] then
+		if id <= provider.drivers[23] then
 			provider.trainData_n = provider.trainData_n + 1
 		else
 			provider.validData_n = provider.validData_n + 1
@@ -88,11 +96,13 @@ if opt.gen_data ~= "no" then
 			provider.trainData[{{train_idx},{},{},{}}] = provider.data[i]
 			provider.trainLabel[train_idx] = provider.labels[i]
 			table.insert(provider.trainDriver, provider.driverId[i])
+			table.insert(provider.trainFile, provider.data_files[i])
 			train_idx = train_idx + 1
 		else
 			-- validation set
 			provider.validData[{{valid_idx},{},{},{}}] = provider.data[i]
 			provider.validLabel[valid_idx] = provider.labels[i]
+			table.insert(provider.validFile, provider.data_files[i])
 			table.insert(provider.validDriver, provider.driverId[i])
 			valid_idx = valid_idx + 1
 		end
@@ -140,7 +150,6 @@ provider.validLabel = cast(provider.validLabel)
 
 -- Configure the model
 ------------------------------------
--- TODO: Parametrize this with width/height of scaled data
 
 
 print(c.blue '==>' ..' configuring model')
@@ -212,7 +221,7 @@ function train()
 	    	-- TODO figure out if this was a bad move
 		-- targets:copy(provider.trainLabel:index(1,v))
 		local targets = provider.trainLabel:index(1,v)
-		-- evaluation function
+		-- aluation function
 	    	local feval = function(x)
       			if x ~= parameters then parameters:copy(x) end      
       			gradParameters:zero()
@@ -220,7 +229,7 @@ function train()
       			local outputs = model:forward(inputs)
       			local f = criterion:forward(outputs, targets)
       			local df_do = criterion:backward(outputs, targets)
-			total_loss = total_loss + f
+			total_loss = total_loss + f * opt.batchSize 
       			model:backward(inputs, df_do)
       			confusion:batchAdd(outputs, targets)
       			
@@ -269,7 +278,7 @@ function validate()
 			targets = targets:reshape(1, targets:size(1))
 		end
 	   	confusion:batchAdd(outputs, targets)
-  		total_loss = total_loss + loss
+  		total_loss = total_loss + loss * bs
 	end
 
 	confusion:updateValids()
@@ -296,7 +305,7 @@ for i = 1,opt.max_epoch do
     	print('==> saving model to '..filename)
     	torch.save(filename, model:clearState())
   	end]]
- end
+end
 
 
 
