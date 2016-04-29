@@ -1,6 +1,5 @@
 -- To create a new data file, this is what you need to do:
 -- TODO add method to create upload submission
--- TODO add 5-6 models that actually do something
 --require 'trepl'
 --arg = {}
 --arg[1] = '--gen_data'
@@ -28,6 +27,8 @@ opt = lapp[[
 	-d,--datafile 	(default p.t7) 			file name of the data provider
 	-h,--height	(default 48)			height of the input images
 	-w,--width	(default 64)			width of the resized images
+	--L2		(default 0)			L2 norm
+	--L1		(default 0)			L1 norm
 
 	-t,--trainAlgo	(default sgd)			training algorithm: sgd, adam, 
 	--weightDecay 	(default 0.0005) 		weightDecay
@@ -91,14 +92,14 @@ if opt.gen_data ~= "no" then
 	for i, id in ipairs(provider.driverId) do
 	    	xlua.progress(i, #provider.driverId)
 		-- TODO: find a better way to make this split 
-		print (i, id, train_idx, valid_idx, id <= provider.drivers[23])
+		print (i, id, train_idx, valid_idx, id <= provider.drivers[25])
 		--[[
 		if i%10 == 0 then
 			id = provider.drivers[1]
 		else
 			id = provider.drivers[21]
 		end]]
-		if id <= provider.drivers[23] then
+		if id <= provider.drivers[25] then
 			-- training set
 			provider.trainData[{{train_idx},{},{},{}}] = provider.data[i]
 			provider.trainLabel[train_idx] = provider.labels[i]
@@ -232,16 +233,24 @@ function train()
 	    	local feval = function(x)
       			if x ~= parameters then parameters:copy(x) end      
       			gradParameters:zero()
-	
+			
       			local outputs = model:forward(inputs)
       			local f = criterion:forward(outputs, targets)
       			local df_do = criterion:backward(outputs, targets)
 			total_loss = total_loss + f * opt.batchSize 
       			model:backward(inputs, df_do)
       			confusion:batchAdd(outputs, targets)
+			
+
+			L2 = torch.norm(parameters)
+			L1 = torch.sum(torch.abs(parameters))
+			print (f, L1, L2, f+opt.L1*L1+opt.L2*L2)
+			f = f + opt.L2 * L2
+			f = f + opt.L1 * L1
+			
       			
       			-- return criterion output and gradient of the parameters
-      			return f,gradParameters
+      			return f, (gradParameters + opt.L2 * 2 * parameters + opt.L1 * torch.sign(parameters))
     		end
 	
 		-- one iteration of the optimizer
@@ -309,13 +318,12 @@ for i = 1,opt.max_epoch do
 	-- validate 
 	validate()
 
-  	--[[ save model every 10 epochs
-	-- TODO enable this
-  	if epoch % 10 == 0 then
-    	local filename = paths.concat(opt.save, 'model.net')
+  	--save model every 10 epochs
+  	if epoch % 25 == 0 then
+    	local filename = paths.concat(opt.save, 'model_' .. epoch .. '.net')
     	print('==> saving model to '..filename)
     	torch.save(filename, model:clearState())
-  	end]]
+  	end
 end
 
 
