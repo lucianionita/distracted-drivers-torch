@@ -29,8 +29,9 @@ opt = lapp[[
 	-h,--height	(default 48)			height of the input images
 	-w,--width	(default 64)			width of the resized images
 
-	 --weightDecay 	(default 0.0005) 		weightDecay
-	 -m,--momentum 	(default 0.9) 			momentum
+	-t,--trainAlgo	(default sgd)			training algorithm: sgd, adam, 
+	--weightDecay 	(default 0.0005) 		weightDecay
+	-m,--momentum 	(default 0.9) 			momentum
 	--epoch_step 	(default 25) 			epoch step
 	--max_epoch 	(default 300) 			maximum number of iterations
 
@@ -90,8 +91,14 @@ if opt.gen_data ~= "no" then
 	for i, id in ipairs(provider.driverId) do
 	    	xlua.progress(i, #provider.driverId)
 		-- TODO: find a better way to make this split 
-		print (i, id, train_idx, valid_idx, id <= provider.drivers[20])
-		if id <= provider.drivers[20] then
+		print (i, id, train_idx, valid_idx, id <= provider.drivers[23])
+		--[[
+		if i%10 == 0 then
+			id = provider.drivers[1]
+		else
+			id = provider.drivers[21]
+		end]]
+		if id <= provider.drivers[23] then
 			-- training set
 			provider.trainData[{{train_idx},{},{},{}}] = provider.data[i]
 			provider.trainLabel[train_idx] = provider.labels[i]
@@ -174,8 +181,8 @@ gradParameters = cast(gradParameters)
 confusion = optim.ConfusionMatrix(10)
 
 -- create the criterion
---criterion = nn.CrossEntropyCriterion()
-criterion = nn.ClassNLLCriterion()
+criterion = nn.CrossEntropyCriterion()
+--criterion = nn.ClassNLLCriterion()
 criterion = criterion:float()
 criterion = cast(criterion)
 
@@ -238,7 +245,11 @@ function train()
     		end
 	
 		-- one iteration of the optimizer
-    	optim.sgd(feval, parameters, optimState)
+		if opt.trainAlgo == 'sgd' then
+    			optim.sgd(feval, parameters, optimState)
+		elseif opt.trainAlgo == 'adam' then
+			optim.adam(feval, parameters, optimState)	
+		end
 	end
 
 
