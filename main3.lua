@@ -60,6 +60,7 @@ if opt.gen_data ~= "no" then
 	print (c.blue"Creating datasets...")
 	provider.labels = provider.labels+1
 
+	--[[
 	provider.trainDriver= {}
 	provider.validDriver= {}
 	provider.trainFile= {}
@@ -93,9 +94,14 @@ if opt.gen_data ~= "no" then
 	    	xlua.progress(i, #provider.driverId)
 		-- TODO: find a better way to make this split 
 		print (i, id, train_idx, valid_idx, id <= provider.drivers[25])
+		--[[
+		if i%10 == 0 then
+			id = provider.drivers[1]
+		else
+			id = provider.drivers[21]
+		end]
 		if id <= provider.drivers[25] then
 			-- training set
-			print (id, train_idx)
 			provider.trainData[{{train_idx},{},{},{}}] = provider.data[i]
 			provider.trainLabel[train_idx] = provider.labels[i]
 			table.insert(provider.trainDriver, provider.driverId[i])
@@ -110,7 +116,7 @@ if opt.gen_data ~= "no" then
 			valid_idx = valid_idx + 1
 		end
 	end
-
+	]]
 	collectgarbage()
 	print (c.blue"Saving file...")
 	torch.save(opt.datafile, provider)
@@ -144,11 +150,12 @@ function cast(t)
    end
 end
 
-provider.trainData = cast(provider.trainData)
-provider.validData = cast(provider.validData)
-provider.trainLabel = cast(provider.trainLabel)
-provider.validLabel = cast(provider.validLabel)
-
+--provider.trainData = cast(provider.trainData)
+--provider.validData = cast(provider.validData)
+--provider.trainLabel = cast(provider.trainLabel)
+--provider.validLabel = cast(provider.validLabel)
+provider.data = cast(provider.data)
+provider.labels = cast(provider.labels)
 
 
 -- Configure the model
@@ -193,59 +200,76 @@ optimState = {
 
 
 
+
 -- Training function
 ---------------------------------------------
 
-function train()
+function train(model,excluded_drivers)
+	-- excluded_driver is an index, between 1 and 26 inclusive
 	model:training()
+
+	-- TODO remove this
 	epoch = epoch or 1
 	
+	-- TODO remove this
 	-- drop learning rate every "epoch_step" epochs
 	if epoch % opt.epoch_step == 0 then optimState.learningRate = optimState.learningRate/5 end
 	
+	
 	-- update on progress
-	print(c.blue '==>'.." Traioning epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']')
+	print(c.blue '==>'.." Traioning without:" .. excluded_drivers .. " epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']')
+
+
+	-- get a set of batches of indices that don't include the excluded driver
+	local valid_indices = torch.randperm(provider.data_n):long()
+
+	for i, idx in ipairs(excluded_drivers) do
+		valid_indices = valid_indices[torch.ne(provider.driverIdx:index(1, valid_indices), idx)]
+	end
+
+	local perm_indices = torch.randperm (valid_indices:size(1)):long()
+	local indices = valid_indices:index(1, perm_indices):long():split(opt.batchSize)
 
 	local targets = cast(torch.FloatTensor(opt.batchSize))
-	local indices = torch.randperm(provider.trainData:size(1)):long():split(opt.batchSize)
 
 	local tic = torch.tic()
 	local total_loss = 0
+
 	-- train on each batch
 	for t,v in ipairs(indices) do
 		-- update progress
-	    	xlua.progress(t, #indices)
-
+	    xlua.progress(t, #indices)
 		if v:size(1) ~= opt.batchSize then
 			break
 		end
 		-- set up batch
-    		local inputs = provider.trainData:index(1,v)
-	    	-- TODO figure out if this was a bad move
-		-- targets:copy(provider.trainLabel:index(1,v))
-		local targets = provider.trainLabel:index(1,v)
-		-- aluation function
+
+    		local inputs = provider.data:index(1,v)
+			targets:copy(provider.labels:index(1,v))
+			--local targets = provider.trainLabel:index(1,v)
+			-- aluation function
 	    	local feval = function(x)
-      			if x ~= parameters then parameters:copy(x) end      
+
+				if x ~= parameters then parameters:copy(x) end      
       			gradParameters:zero()
-			
       			local outputs = model:forward(inputs)
       			local f = criterion:forward(outputs, targets)
       			local df_do = criterion:backward(outputs, targets)
-			total_loss = total_loss + f * opt.batchSize 
+				total_loss = total_loss + f * opt.batchSize 
       			model:backward(inputs, df_do)
       			confusion:batchAdd(outputs, targets)
 			
 
-			L2 = torch.norm(parameters)
-			L1 = torch.sum(torch.abs(parameters))
-			print (f, L1, L2, f+opt.L1*L1+opt.L2*L2)
-			f = f + opt.L2 * L2
-			f = f + opt.L1 * L1
+				--print("1for")			
+				L2 = 0--torch.norm(parameters)
+				L1 = 0--torch.sum(torch.abs(parameters))
+				--print (f, L1, L2, f+opt.L1*L1+opt.L2*L2)
+				f = f + opt.L2 * L2
+				f = f + opt.L1 * L1
 			
       			
       			-- return criterion output and gradient of the parameters
-      			return f, (gradParameters + opt.L2 * 2 * parameters + opt.L1 * torch.sign(parameters))
+      			return f, gradParameters--(gradParameters + opt.L2 * 2 * parameters + opt.L1 * torch.sign(parameters))
     		end
 	
 		-- one iteration of the optimizer
@@ -261,7 +285,7 @@ function train()
 	confusion:updateValids()
 	print(('Train accuracy: '..c.cyan'%.2f'..' %%\t time: %.2f s'):format(
     		confusion.totalValid * 100, torch.toc(tic)))
-	print(('Train     loss: '..c.cyan'%.6f'):format(total_loss/provider.trainData_n))
+	print(('Train     loss: '..c.cyan'%.6f'):format(total_loss/provider.data_n))
 
 	train_acc = confusion.totalValid * 100
 	confusion:zero()	
@@ -269,24 +293,50 @@ function train()
 end
 
 
+-- Create submission file
+-------------------------
+
+function create_submission(model)
+
+	print ("img,c0,c1,c2,c3,c4,c5,c6,c7,c8,c9")
+	for i = 1,provider.test_n do	
+
+		results = model:forward(provider.test[i])
+		print ("")
+
+
+	end	
+		
+end
+
 
 -- Validate function
 ----------------------
-function validate()
+function validate(model, excluded_drivers)
 	model:evaluate()
-	print(c.blue '==>'.." validating")
+	print(c.blue '==>'.." validating on drivers " .. excluded_drivers )
 	local bs = opt.batchSize
 	local total_loss = 0
-	for i=1,provider.validData:size(1),bs do
-		if i + bs > provider.validData:size(1)+1 then
-			bs = provider.validData:size(1)-i+1
-		end	
 
-		local data = provider.validData:narrow(1,i,bs)
-		local targets = provider.validLabel:narrow(1,i,bs)
-		local outputs = model:forward(data)
+	-- Get the set of "batches" where the driver is our excluded driver
+	local valid_indices = torch.randperm(provider.data_n):long()
+	valid_indices = valid_indices[torch.eq(provider.driverIdx:index(1, valid_indices), excluded_driver)]
+	local perm_indices = torch.randperm (valid_indices:size(1)):long()
+	local indices = valid_indices:index(1, perm_indices):long():split(opt.batchSize)
+
+
+	for t,v in ipairs(indices) do
+		-- update progress
+	    xlua.progress(t, #indices)
+
+
+		-- set up batch
+    	local inputs = provider.data:index(1,v)
+		local targets = provider.labels:index(1,v)
+		local outputs = model:forward(inputs)
 		local loss = criterion:forward(outputs, targets)
 		
+		bs = inputs:size(1)
 		-- fix for batchsize 1 
 		if bs == 1 then
 			outputs = outputs:reshape(1, outputs:size(1))		
@@ -298,7 +348,7 @@ function validate()
 
 	confusion:updateValids()
   	print(('Valid accuracy: '..c.cyan'%.2f'):format(confusion.totalValid * 100))
-  	print(('Valid loss: '..c.cyan'%.6f'):format(total_loss/provider.validData_n))
+  	print(('Valid loss: '..c.cyan'%.6f'):format(total_loss/valid_indices:size(1)))
     	print(confusion)
   	confusion:zero()
 end
@@ -308,10 +358,10 @@ end
 for i = 1,opt.max_epoch do
 
 	-- train one epoch
-	train()
+	train(model, 25)
 
 	-- validate 
-	validate()
+	validate(model, 25)
 
   	--save model every 10 epochs
   	if epoch % 25 == 0 then

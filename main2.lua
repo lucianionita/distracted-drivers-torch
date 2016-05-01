@@ -221,9 +221,9 @@ function train(model,excluded_driver)
 
 
 	-- get a set of batches of indices that don't include the excluded driver
-	local valid_indices = torch.randperm(provider.data_n)
-	valid_indices = valid_indices[torch.ne(provider.driverId:index(1, valid_indices), provider.drivers[excluded_driver])]
-	local perm_indices = torch.randperm (valid_indices:size(1))
+	local valid_indices = torch.randperm(provider.data_n):long()
+	valid_indices = valid_indices[torch.ne(provider.driverIdx:index(1, valid_indices), excluded_driver)]
+	local perm_indices = torch.randperm (valid_indices:size(1)):long()
 	local indices = valid_indices:index(1, perm_indices):long():split(opt.batchSize)
 
 	local targets = cast(torch.FloatTensor(opt.batchSize))
@@ -234,38 +234,38 @@ function train(model,excluded_driver)
 	-- train on each batch
 	for t,v in ipairs(indices) do
 		-- update progress
-	    	xlua.progress(t, #indices)
-
+	    xlua.progress(t, #indices)
 		if v:size(1) ~= opt.batchSize then
 			break
 		end
 		-- set up batch
 
     		local inputs = provider.data:index(1,v)
-		targets:copy(provider.labels:index(1,v))
-		--local targets = provider.trainLabel:index(1,v)
-		-- aluation function
+			targets:copy(provider.labels:index(1,v))
+			--local targets = provider.trainLabel:index(1,v)
+			-- aluation function
 	    	local feval = function(x)
-      			if x ~= parameters then parameters:copy(x) end      
+
+				if x ~= parameters then parameters:copy(x) end      
       			gradParameters:zero()
-			
       			local outputs = model:forward(inputs)
       			local f = criterion:forward(outputs, targets)
       			local df_do = criterion:backward(outputs, targets)
-			total_loss = total_loss + f * opt.batchSize 
+				total_loss = total_loss + f * opt.batchSize 
       			model:backward(inputs, df_do)
       			confusion:batchAdd(outputs, targets)
 			
 
-			L2 = torch.norm(parameters)
-			L1 = torch.sum(torch.abs(parameters))
-			print (f, L1, L2, f+opt.L1*L1+opt.L2*L2)
-			f = f + opt.L2 * L2
-			f = f + opt.L1 * L1
+				--print("1for")			
+				L2 = 0--torch.norm(parameters)
+				L1 = 0--torch.sum(torch.abs(parameters))
+				--print (f, L1, L2, f+opt.L1*L1+opt.L2*L2)
+				f = f + opt.L2 * L2
+				f = f + opt.L1 * L1
 			
       			
       			-- return criterion output and gradient of the parameters
-      			return f, (gradParameters + opt.L2 * 2 * parameters + opt.L1 * torch.sign(parameters))
+      			return f, gradParameters--(gradParameters + opt.L2 * 2 * parameters + opt.L1 * torch.sign(parameters))
     		end
 	
 		-- one iteration of the optimizer
@@ -289,24 +289,50 @@ function train(model,excluded_driver)
 end
 
 
+-- Create submission file
+-------------------------
+
+function create_submission(model)
+
+	print ("img,c0,c1,c2,c3,c4,c5,c6,c7,c8,c9")
+	for i = 1,provider.test_n do	
+
+		results = model:forward(provider.test[i])
+		print ("")
+
+
+	end	
+		
+end
+
 
 -- Validate function
 ----------------------
-function validate()
+function validate(model, excluded_driver)
 	model:evaluate()
-	print(c.blue '==>'.." validating")
+	print(c.blue '==>'.." validating on driver " .. excluded_driver .. "("..provider.drivers[excluded_driver]..")")
 	local bs = opt.batchSize
 	local total_loss = 0
-	for i=1,provider.validData:size(1),bs do
-		if i + bs > provider.validData:size(1)+1 then
-			bs = provider.validData:size(1)-i+1
-		end	
 
-		local data = provider.validData:narrow(1,i,bs)
-		local targets = provider.validLabel:narrow(1,i,bs)
-		local outputs = model:forward(data)
+	-- Get the set of "batches" where the driver is our excluded driver
+	local valid_indices = torch.randperm(provider.data_n):long()
+	valid_indices = valid_indices[torch.eq(provider.driverIdx:index(1, valid_indices), excluded_driver)]
+	local perm_indices = torch.randperm (valid_indices:size(1)):long()
+	local indices = valid_indices:index(1, perm_indices):long():split(opt.batchSize)
+
+
+	for t,v in ipairs(indices) do
+		-- update progress
+	    xlua.progress(t, #indices)
+
+
+		-- set up batch
+    	local inputs = provider.data:index(1,v)
+		local targets = provider.labels:index(1,v)
+		local outputs = model:forward(inputs)
 		local loss = criterion:forward(outputs, targets)
 		
+		bs = inputs:size(1)
 		-- fix for batchsize 1 
 		if bs == 1 then
 			outputs = outputs:reshape(1, outputs:size(1))		
@@ -318,7 +344,7 @@ function validate()
 
 	confusion:updateValids()
   	print(('Valid accuracy: '..c.cyan'%.2f'):format(confusion.totalValid * 100))
-  	print(('Valid loss: '..c.cyan'%.6f'):format(total_loss/provider.validData_n))
+  	print(('Valid loss: '..c.cyan'%.6f'):format(total_loss/valid_indices:size(1)))
     	print(confusion)
   	confusion:zero()
 end
@@ -331,7 +357,7 @@ for i = 1,opt.max_epoch do
 	train(model, 25)
 
 	-- validate 
-	validate()
+	validate(model, 25)
 
   	--save model every 10 epochs
   	if epoch % 25 == 0 then

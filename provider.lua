@@ -6,9 +6,8 @@ local c = require 'trepl.colorize'
 local Provider = torch.class 'Provider'
 torch.setdefaulttensortype('torch.FloatTensor')
 
-function Provider:__init(folder, n_max, height, width, load_test_files)
+function Provider:__init(folder, n_max, height, width, load_test_images)
 	
-	self.loaded_test_files = false
 	local img
 	-- folder is where the training data is stored
 	-- n_max is the maximum number of each class that is read from training
@@ -73,6 +72,8 @@ function Provider:__init(folder, n_max, height, width, load_test_files)
 		end
 	end
 
+	-- Convert the driverIdx to tensor
+	self.driverIdx = torch.Tensor(self.driverIdx)
 	
 
 	-- Get the test image files
@@ -96,7 +97,7 @@ function Provider:__init(folder, n_max, height, width, load_test_files)
 	-- Load training images 	
 	local data = torch.FloatTensor(table.getn(self.data_files), 3, height, width)
 	data:zero()
-	print (c.blue"Loadin training images")
+	print (c.blue"Loading training images")
 	for i, file in ipairs(self.data_files) do
         	img = image.load(file)
         	img = image.scale(img, width, height)
@@ -111,6 +112,27 @@ function Provider:__init(folder, n_max, height, width, load_test_files)
 	self.data_n = data:size(1)
 	self.data = data
 
+
+	if load_test_images then
+		self:loadTestImages()
+		self:normalizeTestImages()
+	end
+
+	
+
+	print (c.blue"Transforming tables to tensors")
+	
+	lbls = torch.Tensor(table.getn(self.labels))
+	for i, l in ipairs(self.labels) do
+		lbls[i] = l
+	end
+	self.labels = lbls
+	print ("Done")
+	torch.save("t.t7", self)
+end
+
+
+function Provider:loadTestImages()
 
 	-- Load test images 
 	if load_test_images == true then
@@ -131,28 +153,35 @@ function Provider:__init(folder, n_max, height, width, load_test_files)
 	
 		self.test = test
 		self.test_n = test:size(1)
-		self.loaded_test_files = true
 	end
-	
 
-	print (c.blue"Transforming tables to tensors")
-	
-	-- transform labels into tensor 
-	invDrivers = torch.Tensor(table.getn(self.invDrivers))
-	for i, l in ipairs(self.invDrivers) do
-		invDrivers[i] = l
-	end
-	self.invDrivers = invDrivers
-
-	lbls = torch.Tensor(table.getn(self.labels))
-	for i, l in ipairs(self.labels) do
-		lbls[i] = l
-	end
-	self.labels = lbls
-	print ("Done")
-	torch.save("t.t7", self)
 end
 
+function Provider:normalizeTestImages()
+
+
+  	local testData = self.test
+
+	-- preprocess testSet
+	for i = 1,self.test_n do
+		xlua.progress(i,self.test_n)
+		-- rgb -> yuv		
+		local rgb = testData[i]
+		local yuv = image.rgb2yuv(rgb)
+     		-- normalize y locally:
+     		yuv[{1}] = normalization(yuv[{{1}}])
+     		testData[i] = yuv
+  	end
+  	-- normalize u globally:
+  	testData:select(2,2):add(-self.mean_u)
+  	testData:select(2,2):div(self.std_u)
+  	-- normalize v globally:
+  	testData:select(2,3):add(-self.mean_v)
+  	testData:select(2,3):div(self.std_v)
+
+  	self.test = testData
+
+end
 
 
 function Provider:normalize()
@@ -163,7 +192,6 @@ function Provider:normalize()
   -- preprocess trainSet
   local normalization = nn.SpatialContrastiveNormalization(1, image.gaussian1D(7))
   local trainData = self.data
-  local testData = self.test
 
   for i = 1,self.data_n do
      xlua.progress(i, self.data_n)
@@ -193,25 +221,5 @@ function Provider:normalize()
   self.mean_v = mean_v
   self.std_v = std_v
 
-  if (self.loaded_test_data) then
-	-- preprocess testSet
-	for i = 1,self.test_n do
-		xlua.progress(i,self.test_n)
-		-- rgb -> yuv		
-		local rgb = testData[i]
-		local yuv = image.rgb2yuv(rgb)
-     		-- normalize y locally:
-     		yuv[{1}] = normalization(yuv[{{1}}])
-     		testData[i] = yuv
-  	end
-  	-- normalize u globally:
-  	testData:select(2,2):add(-mean_u)
-  	testData:select(2,2):div(std_u)
-  	-- normalize v globally:
-  	testData:select(2,3):add(-mean_v)
-  	testData:select(2,3):div(std_v)
-
-  	self.test = testData
-  end
 
 end
