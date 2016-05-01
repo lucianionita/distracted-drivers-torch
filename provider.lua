@@ -27,14 +27,19 @@ function Provider:__init(folder, n_max, height, width, load_test_files)
 	self.labels = {}
 	-- driver IDs of data files
 	self.driverId = {}
+	-- driver idx, ie numeric, driverId = drivers[driverIdx]
+	self.driverIdx = {}
 
 
 	-- easier to just list them here rather than acquire them automatically 
 	self.drivers = {"p002", "p012", "p014", "p015", "p016", "p021", "p022", "p024"
 		, "p026", "p035", "p039", "p041", "p042", "p045", "p047", "p049", "p050"
 		, "p051", "p052", "p056", "p061", "p064", "p066", "p072", "p075", "p081"}
-
-
+	-- drivers inverse table
+	self.invDrivers = {}
+	for k, d in pairs(self.drivers) do
+		self.invDrivers[d] = k
+	end
 
 	-- read drivers file
 	file = io.open(folder .. '/driver_imgs_list.csv','r')
@@ -59,6 +64,7 @@ function Provider:__init(folder, n_max, height, width, load_test_files)
 				table.insert(self.data_files, paths.concat(folder .. '/train/c' .. class, file))
 				table.insert(self.labels, class)
 				table.insert(self.driverId, img_driver[file])
+				table.insert(self.driverIdx, self.invDrivers[img_driver[file]])
 				k = k - 1
 				if k == 0 then
 					break
@@ -132,6 +138,12 @@ function Provider:__init(folder, n_max, height, width, load_test_files)
 	print (c.blue"Transforming tables to tensors")
 	
 	-- transform labels into tensor 
+	invDrivers = torch.Tensor(table.getn(self.invDrivers))
+	for i, l in ipairs(self.invDrivers) do
+		invDrivers[i] = l
+	end
+	self.invDrivers = invDrivers
+
 	lbls = torch.Tensor(table.getn(self.labels))
 	for i, l in ipairs(self.labels) do
 		lbls[i] = l
