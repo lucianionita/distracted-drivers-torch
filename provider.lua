@@ -8,6 +8,8 @@ torch.setdefaulttensortype('torch.FloatTensor')
 
 function Provider:__init(folder, n_max, height, width, load_test_images)
 	
+	n_max = -1
+
 	local img
 	-- folder is where the training data is stored
 	-- n_max is the maximum number of each class that is read from training

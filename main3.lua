@@ -23,6 +23,7 @@ opt = lapp[[
 	-s,--save 	(default "logs") 		subdirectory to save logs
 	-S,--submission	(default no)			generate(overwrites) submission.csv file
 
+	-f,--n_folds	(default 3)				number of folds to use
 	-g,--gen_data 	(default no) 			whether to generate data file 
 	-d,--datafile 	(default p.t7) 			file name of the data provider
 	-h,--height	(default 48)			height of the input images
@@ -43,99 +44,28 @@ opt = lapp[[
 ]]
 
 
+if opt.backend == 'cudnn' then
+	   require 'cudnn'
+end
 
--- Generate data file if needed
------------------------------------------------
-height = opt.height
-width = opt.width
-provider = 0
-if opt.gen_data ~= "no" then 
-	-- TODO move most of this to provider.lua
-	num_train = -1
-	provider = Provider("/home/tc/data/distracted-drivers/", num_train, height, width, false)
-	provider:normalize()
-
-	-- Setup bettertraining/testing sets
-	-- Bone-head way: take fist n drivers for training, use last v for validation
-	print (c.blue"Creating datasets...")
-	provider.labels = provider.labels+1
-
-	--[[
-	provider.trainDriver= {}
-	provider.validDriver= {}
-	provider.trainFile= {}
-	provider.validFile= {}
-	provider.trainData_n = 0
-	provider.validData_n = 0
-
-	train_idx = 1
-	valid_idx = 1
-
-	for i, id in ipairs(provider.driverId) do
-		if id <= provider.drivers[25] then
-			provider.trainData_n = provider.trainData_n + 1
-		else
-			provider.validData_n = provider.validData_n + 1
-		end
+-- Aux function to generate a string form a table of drivers
+-------------------------------------------------------------
+function string_drivers(drivers)
+	s = ""
+	for k,v in pairs(drivers) do
+		s = s .. " " .. v 
 	end
-	
-	provider.trainData = torch.Tensor(provider.trainData_n, 3, height, width)
-	provider.validData = torch.Tensor(provider.validData_n, 3, height, width)
-
-	provider.trainLabel = torch.Tensor(provider.trainData_n)
-	provider.validLabel = torch.Tensor(provider.validData_n)
-	
-	provider.trainLabel:zero()
-	provider.validLabel:zero()
-	provider.trainData:zero()
-	provider.validData:zero()
-
-	for i, id in ipairs(provider.driverId) do
-	    	xlua.progress(i, #provider.driverId)
-		-- TODO: find a better way to make this split 
-		print (i, id, train_idx, valid_idx, id <= provider.drivers[25])
-		--[[
-		if i%10 == 0 then
-			id = provider.drivers[1]
-		else
-			id = provider.drivers[21]
-		end]
-		if id <= provider.drivers[25] then
-			-- training set
-			provider.trainData[{{train_idx},{},{},{}}] = provider.data[i]
-			provider.trainLabel[train_idx] = provider.labels[i]
-			table.insert(provider.trainDriver, provider.driverId[i])
-			table.insert(provider.trainFile, provider.data_files[i])
-			train_idx = train_idx + 1
-		else
-			-- validation set
-			provider.validData[{{valid_idx},{},{},{}}] = provider.data[i]
-			provider.validLabel[valid_idx] = provider.labels[i]
-			table.insert(provider.validFile, provider.data_files[i])
-			table.insert(provider.validDriver, provider.driverId[i])
-			valid_idx = valid_idx + 1
-		end
-	end
-	]]
-	collectgarbage()
-	print (c.blue"Saving file...")
-	torch.save(opt.datafile, provider)
+	s = s .. " "
+	return s
 end
 
 
 
 
--- Load the data
-----------------------
-print (c.blue"Loading data...")
-provider = torch.load(opt.datafile)
 
 
-
-
-
--- TODO: move this to an "aux" file
 -- method to change the type of the data, models etc 
+-- TODO: move this to an "aux" file
 function cast(t)
    if opt.type == 'cuda' then
       require 'cunn'
@@ -150,53 +80,51 @@ function cast(t)
    end
 end
 
---provider.trainData = cast(provider.trainData)
---provider.validData = cast(provider.validData)
---provider.trainLabel = cast(provider.trainLabel)
---provider.validLabel = cast(provider.validLabel)
-provider.data = cast(provider.data)
-provider.labels = cast(provider.labels)
 
 
 -- Configure the model
 ------------------------------------
+function get_trainer()
+	
+	-- configure model	
+	model = nn.Sequential()
+	model:add(cast(nn.Copy('torch.FloatTensor', torch.type(cast(torch.Tensor())))))
+	model:add(cast(dofile('models/'..opt.model..'.lua')))
+	model:get(2).updateGradInput = function(input) return end
 
+	-- cast to cudnn if necessary
+	if opt.backend == 'cudnn' then
+	   cudnn.convert(model:get(2), cudnn)
+	end
 
-print(c.blue '==>' ..' configuring model')
-model = nn.Sequential()
-model:add(cast(nn.Copy('torch.FloatTensor', torch.type(cast(torch.Tensor())))))
-model:add(cast(dofile('models/'..opt.model..'.lua')))
-model:get(2).updateGradInput = function(input) return end
+	-- get the parameters and gradients
+	parameters, gradParameters = model:getParameters()
+	parameters = cast(parameters)
+	gradParameters = cast(gradParameters)
 
-if opt.backend == 'cudnn' then
-   require 'cudnn'
-   cudnn.convert(model:get(2), cudnn)
+	-- create the criterion
+	criterion = nn.CrossEntropyCriterion()
+	criterion = criterion:float()
+	criterion = cast(criterion)
+
+	-- set up the optimizer parameters
+	optimState = {
+		learningRate = opt.learningRate,
+		weightDecay = opt.weightDecay,
+		momentum = opt.momentum,
+		learningRateDecay = opt.learningRateDecay,
+	}
+
+	trainer = {}
+
+	trainer.model = model
+	trainer.params = parameters
+	trainer.gParams = gradParameters
+	trainer.criterion = criterion
+	trainer.optimState = optimState
+
+	return trainer	
 end
-
-print(model)
-
--- get the parameters and gradients
-parameters, gradParameters = model:getParameters()
-parameters = cast(parameters)
-gradParameters = cast(gradParameters)
-
--- set up the confusion matrix
-confusion = optim.ConfusionMatrix(10)
-
--- create the criterion
-criterion = nn.CrossEntropyCriterion()
---criterion = nn.ClassNLLCriterion()
-criterion = criterion:float()
-criterion = cast(criterion)
-
--- set up the optimizer parameters
-optimState = {
-  learningRate = opt.learningRate,
-  weightDecay = opt.weightDecay,
-  momentum = opt.momentum,
-  learningRateDecay = opt.learningRateDecay,
-}
-
 
 
 
@@ -204,26 +132,27 @@ optimState = {
 -- Training function
 ---------------------------------------------
 
-function train(model,excluded_drivers)
+function train(trainer,excluded_drivers, epoch, print_stats)
+	-- set up the confusion matrix
+	confusion = optim.ConfusionMatrix(10)
+	model = trainer.model 
+	parameters = trainer.params 
+	gradParameters = trainer.gParams 
+	criterion = trainer.criterion 
+	optimState = trainer.optimState 
 	-- excluded_driver is an index, between 1 and 26 inclusive
 	model:training()
 
-	-- TODO remove this
-	epoch = epoch or 1
-	
-	-- TODO remove this
-	-- drop learning rate every "epoch_step" epochs
-	if epoch % opt.epoch_step == 0 then optimState.learningRate = optimState.learningRate/5 end
 	
 	
 	-- update on progress
-	print(c.blue '==>'.." Traioning without:" .. excluded_drivers .. " epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']')
+	print(c.blue '==>'.." Traioning without:" .. string_drivers(excluded_drivers) .. " epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']')
 
 
 	-- get a set of batches of indices that don't include the excluded driver
 	local valid_indices = torch.randperm(provider.data_n):long()
 
-	for i, idx in ipairs(excluded_drivers) do
+	for i, idx in pairs(excluded_drivers) do
 		valid_indices = valid_indices[torch.ne(provider.driverIdx:index(1, valid_indices), idx)]
 	end
 
@@ -235,8 +164,10 @@ function train(model,excluded_drivers)
 	local tic = torch.tic()
 	local total_loss = 0
 
+	train_n = valid_indices:size(1)
+
 	-- train on each batch
-	for t,v in ipairs(indices) do
+	for t,v in pairs(indices) do
 		-- update progress
 	    xlua.progress(t, #indices)
 		if v:size(1) ~= opt.batchSize then
@@ -283,13 +214,16 @@ function train(model,excluded_drivers)
 
 	-- update confusion matrix
 	confusion:updateValids()
-	print(('Train accuracy: '..c.cyan'%.2f'..' %%\t time: %.2f s'):format(
+	if print_stats then
+		print(('Train accuracy: '..c.cyan'%.2f'..' %%\t time: %.2f s'):format(
     		confusion.totalValid * 100, torch.toc(tic)))
-	print(('Train     loss: '..c.cyan'%.6f'):format(total_loss/provider.data_n))
-
+		print(('Train     loss: '..c.cyan'%.6f'):format(total_loss/train_n))
+	end
+	
 	train_acc = confusion.totalValid * 100
-	confusion:zero()	
-	epoch = epoch + 1
+
+	return train_acc, total_loss/train_n
+	
 end
 
 
@@ -304,7 +238,6 @@ function create_submission(model)
 		results = model:forward(provider.test[i])
 		print ("")
 
-
 	end	
 		
 end
@@ -312,20 +245,32 @@ end
 
 -- Validate function
 ----------------------
-function validate(model, excluded_drivers)
+function validate(model, excluded_drivers, print_stats, print_confmat)
+	-- set up the confusion matrix
+	confusion = optim.ConfusionMatrix(10)
+
+
+
+
 	model:evaluate()
-	print(c.blue '==>'.." validating on drivers " .. excluded_drivers )
+	print(c.blue '==>'.." validating on drivers " .. string_drivers(excluded_drivers) )
 	local bs = opt.batchSize
 	local total_loss = 0
 
-	-- Get the set of "batches" where the driver is our excluded driver
-	local valid_indices = torch.randperm(provider.data_n):long()
-	valid_indices = valid_indices[torch.eq(provider.driverIdx:index(1, valid_indices), excluded_driver)]
+
+	-- Get the set of "batches" where the drivers are excluded
+	local valid_indices = torch.range(1,provider.data_n):long()
+	local is_excluded = torch.zeros(provider.data_n):long()
+	-- If an index points to an excluded driver, set the is_excluded to 1
+	for i, idx in pairs(excluded_drivers) do
+		is_excluded[torch.eq(provider.driverIdx:index(1, valid_indices), idx)] = 1
+	end
+	valid_indices = valid_indices[torch.eq(is_excluded, 1)]
+	--print (valid_indices, is_excluded, provider.data_n)
 	local perm_indices = torch.randperm (valid_indices:size(1)):long()
 	local indices = valid_indices:index(1, perm_indices):long():split(opt.batchSize)
 
-
-	for t,v in ipairs(indices) do
+	for t,v in pairs(indices) do
 		-- update progress
 	    xlua.progress(t, #indices)
 
@@ -347,30 +292,146 @@ function validate(model, excluded_drivers)
 	end
 
 	confusion:updateValids()
-  	print(('Valid accuracy: '..c.cyan'%.2f'):format(confusion.totalValid * 100))
-  	print(('Valid loss: '..c.cyan'%.6f'):format(total_loss/valid_indices:size(1)))
-    	print(confusion)
-  	confusion:zero()
+	if print_stats then
+	  	print(('Valid accuracy: '..c.cyan'%.2f'):format(confusion.totalValid * 100))
+  		print(('Valid loss: '..c.cyan'%.6f'):format(total_loss/valid_indices:size(1)))
+	end
+	if print_confmat then
+	    print(confusion)
+	end
+	return confusion.totalValid, total_loss/valid_indices:size(1), valid_indices:size(1), confusion
 end
 
 
--- Main Loop
-for i = 1,opt.max_epoch do
 
-	-- train one epoch
-	train(model, 25)
+---------------------------------
 
-	-- validate 
-	validate(model, 25)
+
+---------------------------------
+--           Main              --  
+---------------------------------
+
+
+---------------------------------
+
+
+
+-- Generate data file if needed
+-----------------------------------------------
+height = opt.height
+width = opt.width
+provider = 0
+if opt.gen_data ~= "no" then 
+	-- TODO move most of this to provider.lua
+	num_train = -1
+	provider = Provider("/home/tc/data/distracted-drivers/", num_train, height, width, false)
+	provider:normalize()
+
+	-- Setup bettertraining/testing sets
+	-- Bone-head way: take fist n drivers for training, use last v for validation
+	provider.labels = provider.labels+1
+
+	collectgarbage()
+	print (c.blue"Saving file...")
+	torch.save(opt.datafile, provider)
+end
+
+
+-- Set up models/trainers
+-------------------------
+folds = torch.range(1,26):chunk(opt.n_folds)
+-- TODO: Create a method for having multiple an overcomplete x-fold 
+-- ie. drivers can appear in multiple folds, like in RF 
+trainers = {}
+print(c.blue '==>' ..' configuring model')
+for i = 1,opt.n_folds do
+
+	trainer = get_trainer()
+	excluded_drivers = {}
+	included_drivers = {}
+	for j = 1,folds[i]:size(1) do
+		table.insert(excluded_drivers, folds[i][j], folds[i][j])
+	end
+	for j = 1,26 do
+		if excluded_drivers[j] == nil then
+			table.insert(included_drivers, j, j)
+		end
+	end
+	trainer.excluded_drivers = excluded_drivers
+	trainer.included_drivers = included_drivers
+	trainers[i] = trainer
+end
+
+
+-- Load the data
+----------------------
+print (c.blue"Loading data...")
+provider = torch.load(opt.datafile)
+provider.data = cast(provider.data)
+provider.labels = cast(provider.labels)
+
+
+
+
+-- Train / validate the model(s)
+--------------------------------
+
+for epoch = 1,opt.max_epoch do
+	
+	print (c.blue"Training epoch " .. epoch .. c.blue "  ---------------------------------")
+
+	for fold = 1,opt.n_folds do
+		print ("Training epoch " .. epoch .. " fold " .. fold)
+
+		trainer = trainers[fold]
+		-- train each model one epoch
+		train(trainer, trainer.excluded_drivers, epoch, true)
+	end
+
+
+	print (c.blue"Validation epoch " .. epoch .. c.blue "  --------------------------------")
+	--[[ Validation should print out:
+		- Each model's accuracy / loss on its validation set
+		- Aggregated validation set accuracy / loss
+		- Aggregated class accuracy/loss
+		- Aggregated driver acucracy/loss
+		
+		* Note, should account for when a class is excluded from multiple folds
+	]]
+	local aggregate = torch.Tensor(provider.data:size())
+	aggregate[{}] = 1
+	local total_loss = 0
+	local total_acc = 0
+	for fold = 1,opt.n_folds do
+		print ("Validating epoch " .. epoch .. " fold " .. fold)
+		acc, loss, n_valid = validate(trainers[fold].model, trainers[fold].excluded_drivers, false, false)
+		-- TODO: use some nicer formatting
+		print ("Fold " .. fold .. " (" .. string_drivers(trainers[fold].excluded_drivers).. ") \tacc = " .. acc*100 .. "\tloss = " .. loss)
+		total_loss = total_loss + loss * n_valid
+		total_acc = total_acc + acc * n_valid
+	end
+	print (c.Magenta"==>" .. " TOTAL \tacc = " ..  total_acc / provider.data_n * 100.0 .. "\t loss = " .. total_loss/provider.data_n)
+
+
+	--print (c.blue"Logging epoch " .. epoch .. c.blue " ---------------")
+	--[[ TODO Logging should consist of
+		Each model's predictions on all data
+		Saving every mode
+		Confusion matrix, validation stats
+	]]	
 
   	--save model every 10 epochs
+	--[[
   	if epoch % 25 == 0 then
     	local filename = paths.concat(opt.save, 'model_' .. epoch .. '.net')
     	print('==> saving model to '..filename)
     	torch.save(filename, model:clearState())
   	end
+	]]
+	
+	
+	-- TODO: decrease learning rate over time
 end
-
 
 
 
