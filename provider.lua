@@ -129,7 +129,6 @@ function Provider:__init(folder, n_max, height, width, load_test_images)
 	end
 	self.labels = lbls
 	print ("Done")
-	torch.save("t.t7", self)
 end
 
 
@@ -147,6 +146,7 @@ function Provider:loadTestImages()
 			--table.insert(self.test, img)
 			test[{{i},{},{},{}}] = img	
 			xlua.progress(i, table.getn(self.test_files))
+			collectgarbage()
 		end
 	
 		self.test = test
