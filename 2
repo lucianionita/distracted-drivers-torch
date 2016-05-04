@@ -140,7 +140,7 @@ function Provider:loadTestImages()
 		local test = torch.Tensor(table.getn(self.test_files), 3, height, width)
 		test:zero()
 		for i, file in ipairs(self.test_files) do
-			local img = image.load(file)
+			img = image.load(file)
 			img = image.scale(img, width, height)
        	 	img = img:reshape(1, 3, height, width)
 	
