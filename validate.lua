@@ -1,6 +1,6 @@
 -- Validate function
 ----------------------
-function validate(model, excluded_drivers, print_stats, print_confmat)
+function validate(model, excluded_drivers, verbose, print_stats, print_confmat)
     -- set up the confusion matrix
     confusion = optim.ConfusionMatrix(10)
 
@@ -8,7 +8,9 @@ function validate(model, excluded_drivers, print_stats, print_confmat)
 
 
     model:evaluate()
-    print(c.Blue '==>'.." Validating on drivers (" .. string_drivers(excluded_drivers)..")" )
+	if verbose then
+	    print(c.blue '==>'.." Validating on drivers (" .. string_drivers(excluded_drivers)..")" )
+	end
     local bs = opt.batchSize
     local total_loss = 0
 

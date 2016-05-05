@@ -1,7 +1,7 @@
 -- Training function
 ---------------------------------------------
 
-function train(trainer,excluded_drivers, epoch, fold, print_stats)
+function train(trainer,excluded_drivers, epoch, fold, verbose, print_stats)
     -- set up the confusion matrix
     confusion = optim.ConfusionMatrix(10)
     model = trainer.model
@@ -15,8 +15,9 @@ function train(trainer,excluded_drivers, epoch, fold, print_stats)
 
 
     -- update on progress
-    print(c.blue '==>'.." Training fold # " .. fold .. "/" .. opt.n_folds .. "\t sans (" .. string_drivers(excluded_drivers) .. ")\t epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']')
-
+    if verbose then
+		print(c.blue '==>'.." Training fold # " .. fold .. "/" .. opt.n_folds .. "\t sans (" .. string_drivers(excluded_drivers) .. ")\t epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']')
+	end
 
     -- get a set of batches of indices that don't include the excluded driver
     local valid_indices = torch.randperm(provider.data_n):long()

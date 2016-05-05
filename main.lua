@@ -168,15 +168,17 @@ for epoch = 1,opt.max_epoch do
 
 		trainer = trainers[fold]
 
+		print(c.blue '==>'.." Training/validating on fold # " .. fold .. "/" .. opt.n_folds .. "\t (" .. string_drivers(trainer.excluded_drivers) .. ")\t epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']')
+
 		-- train each model one epoch
-		acc, loss, n = train(trainer, trainer.excluded_drivers, epoch, fold, false)
+		acc, loss, n = train(trainer, trainer.excluded_drivers, epoch, fold, false, false)
 		total_train_acc = total_train_acc + acc * n
 		total_train_loss = total_train_loss + loss * n 
 		train_n = train_n + n
         print(('Train accuracy: '..c.cyan'%.2f' .. '\tloss: '.. c.cyan'%.6f'):format(acc * 100, loss))
 		
 		-- validate one epoch		
-		acc, loss, n = validate(trainers[fold].model, trainers[fold].excluded_drivers, false, false)
+		acc, loss, n = validate(trainers[fold].model, trainers[fold].excluded_drivers, false, false, false)
 		total_valid_acc = total_valid_acc + acc * n
 		total_valid_loss = total_valid_loss + loss * n
         print(('Valid accuracy: '..c.green'%.2f' .. '\tloss: '.. c.green'%.6f' ):format(acc * 100, loss))
@@ -217,9 +219,9 @@ for epoch = 1,opt.max_epoch do
 	
 	-- learning rate decay
 	if opt.lr_schedule > 0 then
-		print (c.blue'==>' .. 'Reducing learning rate. Decay is ' .. opt.lr_factor)
 		if epoch % opt.lr_schedule == 0 then
-			for trainer in trainers do
+			print (c.blue'==>' .. 'Reducing learning rate. Decay is ' .. opt.lr_factor)
+			for i, trainer in pairs(trainers) do
 				trainer.optimState.learningRate = trainer.optimState.learningRate * opt.lr_factor
 			end			
 		end
