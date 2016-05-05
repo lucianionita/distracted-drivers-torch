@@ -3,8 +3,9 @@ require 'nn'
 local model = nn.Sequential()
 
 model:add(nn.View(64*48*3))
+--model:add(nn.Dropout(0.5))
 model:add(nn.Linear(64*48*3, 10))
---model:add(nn.SoftMax())
+model:add(nn.SoftMax())
 
 --[[initialization from MSR
 local function MSRinit(net)

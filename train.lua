@@ -84,7 +84,7 @@ function train(trainer,excluded_drivers, epoch, fold, print_stats)
     -- update confusion matrix
     confusion:updateValids()
     if print_stats then
-        print(('Train accuracy: '..c.cyan'%.2f\tloss: '.. c.cyan'%.6f'.. '\t%%\t time: %.2f s'):format(
+        print(('Train accuracy: '..c.cyan'%.2f\tloss: '.. c.cyan'%.6f'.. '\t time: %.2f s'):format(
             confusion.totalValid * 100, torch.toc(tic),total_loss/train_n))
     end
 

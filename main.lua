@@ -172,13 +172,13 @@ for epoch = 1,opt.max_epoch do
 		total_train_acc = total_train_acc + acc * n
 		total_train_loss = total_train_loss + loss * n 
 		train_n = train_n + n
-        print(('Train accuracy: '..c.cyan'%.2f' .. '\tloss: '.. c.cyan'%.6f'.. '\t%%\t'):format(acc * 100, loss))
+        print(('Train accuracy: '..c.cyan'%.2f' .. '\tloss: '.. c.cyan'%.6f'):format(acc * 100, loss))
 		
 		-- validate one epoch		
 		acc, loss, n = validate(trainers[fold].model, trainers[fold].excluded_drivers, false, false)
 		total_valid_acc = total_valid_acc + acc * n
 		total_valid_loss = total_valid_loss + loss * n
-        print(('Valid accuracy: '..c.green'%.2f' .. '\tloss: '.. c.green'%.6f'.. '\t%%\t'):format(acc * 100, loss))
+        print(('Valid accuracy: '..c.green'%.2f' .. '\tloss: '.. c.green'%.6f' ):format(acc * 100, loss))
 	
 	end
 
