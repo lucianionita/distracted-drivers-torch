@@ -8,7 +8,7 @@ function validate(model, excluded_drivers, print_stats, print_confmat)
 
 
     model:evaluate()
-    print(c.blue '==>'.." validating on drivers (" .. string_drivers(excluded_drivers)..")" )
+    print(c.Blue '==>'.." Validating on drivers (" .. string_drivers(excluded_drivers)..")" )
     local bs = opt.batchSize
     local total_loss = 0
 

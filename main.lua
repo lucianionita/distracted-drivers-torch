@@ -4,8 +4,7 @@
 -- TODO Implement conf mat for ensemble model for validation set
 -- TODO Save models
 -- TODO Save logs
--- TODO Move methods into other files
--- TODO decrease learning rate over time
+-- TODO Try other training algos
 
 -- Uncomment this is running with qlua
 --require 'trepl'
@@ -36,7 +35,8 @@ opt = lapp[[
 	--model 	(default linear_logsoftmax) 	model name
 	-b,--batchSize 	(default 32) 			batch size
  	-r,--learningRate 	(default 1) 		learning rate
- 	--learningRateDecay 	(default 1e-7) 		learning rate decay
+ 	--learningRateDecay 	(default 0.5) 		learning rate decay
+	--lr_schedule			(default 100)		learning rate decay schedule, how many epochs between LR decreases
 	
 	-s,--save 	(default "logs") 		subdirectory to save logs
 	-S,--submission						generate(overwrites) submission.csv file
@@ -50,10 +50,9 @@ opt = lapp[[
 	--L1		(default 0)					L1 norm
 	--num_train		(default -1)				Artificially reduces training set (DEBUG)
 
-	-t,--trainAlgo	(default sgd)			training algorithm: sgd, adam, 
-	--weightDecay 	(default 0.0005) 		weightDecay
+	-t,--trainAlgo	(default sgd)			training algorithm: sgd, adam
+	--weightDecay 	(default 0.0005) 		weightDecay (use in SGD instead of L2)
 	-m,--momentum 	(default 0.9) 			momentum
-	--epoch_step 	(default 25) 			epoch step
 	--max_epoch 	(default 300) 			maximum number of iterations
 
  	--backend (default cudnn) 			backend to be used nn/cudnn
@@ -154,7 +153,7 @@ end
 
 for epoch = 1,opt.max_epoch do
 	
-	print (c.blue"Training epoch " .. epoch .. c.blue "  ---------------------------------")
+	print (c.blue"=====>" .. " Epoch " .. epoch .. c.blue " ================================================================")
 
 	
 	local total_train_acc = 0
@@ -178,14 +177,13 @@ for epoch = 1,opt.max_epoch do
 		-- validate one epoch		
 		acc, loss, n = validate(trainers[fold].model, trainers[fold].excluded_drivers, false, false)
 		total_valid_acc = total_valid_acc + acc * n
-		total_valid_loss = total_valid_loss + acc * n
+		total_valid_loss = total_valid_loss + loss * n
         print(('Valid accuracy: '..c.green'%.2f' .. '\tloss: '.. c.green'%.6f'.. '\t%%\t'):format(acc * 100, loss))
 	
 	end
-		print (c.Magenta"==>" .. "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t".."Mean  Training   \tacc = " ..  total_train_acc * 100 / (1.0*train_n) .. "\t loss = " .. total_valid_loss/train_n)
-		print (c.Magenta"==>" .. "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t".."Total Validation \tacc = " ..  total_valid_acc * 100 / (1.0*provider.data_n) .. "\t loss = " .. total_valid_loss/provider.data_n)
 
-        print(('Valid accuracy: '..c.Magenta'%.2f' .. '\tloss: '.. c.magenta'%.6f'.. '\t%%\t'):format(total_valid_acc * 100 / (1.0*provider.data_n), total_valid_loss/provider.data_n))
+    print((c.Magenta"==>" .. ' Epoch Train accuracy: '..c.Magenta'%.2f%%' .. '\tloss: '.. c.Magenta'%.6f'.. ''):format(total_train_acc * 100 / (1.0*train_n), total_train_loss/train_n))
+    print((c.Magenta"==>" .. ' Epoch Valid accuracy: '..c.Magenta'%.2f%%' .. '\tloss: '.. c.Magenta'%.6f'.. ''):format(total_valid_acc * 100 / (1.0*provider.data_n), total_valid_loss/provider.data_n))
 
 	--[[ TODO Validation should print out:
 		- Each model's accuracy / loss on its validation set
@@ -213,6 +211,18 @@ for epoch = 1,opt.max_epoch do
   	end
 	]]
 	
+	-- Update trainers
+	------------------------
+	
+	-- learning rate decay
+	if opt.lr_schedule > 0 then
+		if epoch % opt.lr_schedule == 0 then
+			for trainer in trainers do
+				trainer.optimState.learningRate = trainer.optimState.learningRate * opt.learningRateDecay
+			end			
+		end
+	end
+
 	
 end
 
