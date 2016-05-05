@@ -2,3 +2,4 @@
 models/*.net
 logs/*.net
 submission.csv
+.*.swp
