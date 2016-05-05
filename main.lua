@@ -156,16 +156,38 @@ for epoch = 1,opt.max_epoch do
 	
 	print (c.blue"Training epoch " .. epoch .. c.blue "  ---------------------------------")
 
+	
+	local total_train_acc = 0
+	local total_valid_acc = 0
+	local total_train_loss = 0 
+	local total_valid_loss = 0
+	local acc, loss
+	local train_n = 0
+
 	for fold = 1,opt.n_folds do
 
 		trainer = trainers[fold]
+
 		-- train each model one epoch
-		train(trainer, trainer.excluded_drivers, epoch, fold, true)
+		acc, loss, n = train(trainer, trainer.excluded_drivers, epoch, fold, false)
+		total_train_acc = total_train_acc + acc * n
+		total_train_loss = total_train_loss + loss * n 
+		train_n = train_n + n
+        print(('Train accuracy: '..c.cyan'%.2f' .. '\tloss: '.. c.cyan'%.6f'.. '\t%%\t'):format(acc * 100, loss))
+		
+		-- validate one epoch		
+		acc, loss, n = validate(trainers[fold].model, trainers[fold].excluded_drivers, false, false)
+		total_valid_acc = total_valid_acc + acc * n
+		total_valid_loss = total_valid_loss + acc * n
+        print(('Valid accuracy: '..c.green'%.2f' .. '\tloss: '.. c.green'%.6f'.. '\t%%\t'):format(acc * 100, loss))
+	
 	end
+		print (c.Magenta"==>" .. "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t".."Mean  Training   \tacc = " ..  total_train_acc * 100 / (1.0*train_n) .. "\t loss = " .. total_valid_loss/train_n)
+		print (c.Magenta"==>" .. "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t".."Total Validation \tacc = " ..  total_valid_acc * 100 / (1.0*provider.data_n) .. "\t loss = " .. total_valid_loss/provider.data_n)
 
+        print(('Valid accuracy: '..c.Magenta'%.2f' .. '\tloss: '.. c.magenta'%.6f'.. '\t%%\t'):format(total_valid_acc * 100 / (1.0*provider.data_n), total_valid_loss/provider.data_n))
 
-	print (c.blue"Validation epoch " .. epoch .. c.blue "  --------------------------------")
-	--[[ Validation should print out:
+	--[[ TODO Validation should print out:
 		- Each model's accuracy / loss on its validation set
 		- Aggregated validation set accuracy / loss
 		- Aggregated class accuracy/loss
@@ -173,19 +195,6 @@ for epoch = 1,opt.max_epoch do
 		
 		* Note, should account for when a class is excluded from multiple folds
 	]]
-	local aggregate = torch.Tensor(provider.data:size())
-	aggregate[{}] = 1
-	local total_loss = 0
-	local total_acc = 0.0
-	for fold = 1,opt.n_folds do
-		print ("Validating epoch " .. epoch .. " fold " .. fold  .. "/" .. opt.n_folds)
-		acc, loss, n_valid = validate(trainers[fold].model, trainers[fold].excluded_drivers, false, false)
-		-- TODO: use some nicer formatting
-		print ("Fold " .. fold .. " (" .. string_drivers(trainers[fold].excluded_drivers).. ") \tacc = " .. acc*100 .. "\tloss = " .. loss)
-		total_loss = total_loss + loss * n_valid
-		total_acc = total_acc + acc * n_valid
-	end
-	print (c.Magenta"==>" .. "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\tTotal Validation \tacc = " ..  total_acc * 100 / (1.0*provider.data_n) .. "\t loss = " .. total_loss/provider.data_n)
 
 
 	--print (c.blue"Logging epoch " .. epoch .. c.blue " ---------------")
