@@ -1,3 +1,4 @@
 *.t7
 models/*.net
 logs/*.net
+submission.csv

@@ -134,19 +134,23 @@ end
 
 function Provider:loadTestImages()
 
+
 		print (c.blue"Loading test images")
 
 		local test = torch.Tensor(table.getn(self.test_files), 3, height, width)
 		test:zero()
 		for i, file in ipairs(self.test_files) do
+
 			local img = image.load(file)
 			img = image.scale(img, width, height)
-       	 	img = img:reshape(1, 3, height, width)
-	
+   		 	img = img:reshape(1, 3, height, width)
+					
 			--table.insert(self.test, img)
 			test[{{i},{},{},{}}] = img	
 			xlua.progress(i, table.getn(self.test_files))
-			collectgarbage()
+			if i % 50 == 0 then		
+				collectgarbage()
+			end
 		end
 	
 		self.test = test
@@ -220,7 +224,7 @@ function Provider:normalize()
   self.mean_v = mean_v
   self.std_v = std_v
 
-	if load_test_images then
+	if self.load_test_images then
 		self:normalizeTestImages()
 	end
 

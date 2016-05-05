@@ -177,7 +177,7 @@ for epoch = 1,opt.max_epoch do
 	local aggregate = torch.Tensor(provider.data:size())
 	aggregate[{}] = 1
 	local total_loss = 0
-	local total_acc = 0
+	local total_acc = 0.0
 	for fold = 1,opt.n_folds do
 		print ("Validating epoch " .. epoch .. " fold " .. fold  .. "/" .. opt.n_folds)
 		acc, loss, n_valid = validate(trainers[fold].model, trainers[fold].excluded_drivers, false, false)
@@ -186,7 +186,7 @@ for epoch = 1,opt.max_epoch do
 		total_loss = total_loss + loss * n_valid
 		total_acc = total_acc + acc * n_valid
 	end
-	print (c.Magenta"==>" .. " Total Validation \tacc = " ..  total_acc / provider.data_n * 100.0 .. "\t loss = " .. total_loss/provider.data_n)
+	print (c.Magenta"==>" .. "\t\t\t\t\t\t\t\t\t\t\t\t\t\t\tTotal Validation \tacc = " ..  total_acc * 100 / (1.0*provider.data_n) .. "\t loss = " .. total_loss/provider.data_n)
 
 
 	--print (c.blue"Logging epoch " .. epoch .. c.blue " ---------------")
@@ -211,3 +211,11 @@ end
 
 
 
+
+
+-- Create submission file
+--------------------------
+
+if opt.submission then
+	predictions = create_submission(trainers)
+end
