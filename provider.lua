@@ -157,8 +157,10 @@ end
 function Provider:normalizeTestImages()
 
 
+  	print (c.blue"Normalizing test images")
   	local testData = self.test
 
+  	local normalization = nn.SpatialContrastiveNormalization(1, image.gaussian1D(7))
 	-- preprocess testSet
 	for i = 1,self.test_n do
 		xlua.progress(i,self.test_n)
@@ -167,14 +169,14 @@ function Provider:normalizeTestImages()
 		local yuv = image.rgb2yuv(rgb)
      		-- normalize y locally:
      		yuv[{1}] = normalization(yuv[{{1}}])
+	  		-- normalize u globally:
+  			yuv:select(1,2):add(-self.mean_u)
+		  	yuv:select(1,2):div(self.std_u)
+ 		 	-- normalize v globally:
+		  	yuv:select(1,3):add(-self.mean_v)
+  			yuv:select(1,3):div(self.std_v)
      		testData[i] = yuv
   	end
-  	-- normalize u globally:
-  	testData:select(2,2):add(-self.mean_u)
-  	testData:select(2,2):div(self.std_u)
-  	-- normalize v globally:
-  	testData:select(2,3):add(-self.mean_v)
-  	testData:select(2,3):div(self.std_v)
 
   	self.test = testData
 
