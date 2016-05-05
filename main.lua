@@ -35,8 +35,9 @@ opt = lapp[[
 	--model 	(default linear_logsoftmax) 	model name
 	-b,--batchSize 	(default 32) 			batch size
  	-r,--learningRate 	(default 1) 		learning rate
- 	--learningRateDecay 	(default 0.5) 		learning rate decay
-	--lr_schedule			(default 100)		learning rate decay schedule, how many epochs between LR decreases
+ 	--learningRateDecay 	(default 1e-7) 		learning rate decay
+	--lr_schedule			(default 100)		learning rate reduction schedule, how many epochs between LR decreases
+	--lr_factor				(default 0.5)		learning rate reduction factor
 	
 	-s,--save 	(default "logs") 		subdirectory to save logs
 	-S,--submission						generate(overwrites) submission.csv file
@@ -216,9 +217,10 @@ for epoch = 1,opt.max_epoch do
 	
 	-- learning rate decay
 	if opt.lr_schedule > 0 then
+		print (c.blue'==>' .. 'Reducing learning rate. Decay is ' .. opt.lr_factor)
 		if epoch % opt.lr_schedule == 0 then
 			for trainer in trainers do
-				trainer.optimState.learningRate = trainer.optimState.learningRate * opt.learningRateDecay
+				trainer.optimState.learningRate = trainer.optimState.learningRate * opt.lr_factor
 			end			
 		end
 	end
