@@ -148,7 +148,7 @@ function Provider:loadTestImages()
 			--table.insert(self.test, img)
 			test[{{i},{},{},{}}] = img	
 			xlua.progress(i, table.getn(self.test_files))
-			if i % 50 == 0 then		
+			if i % 500 == 0 then		
 				collectgarbage()
 			end
 		end

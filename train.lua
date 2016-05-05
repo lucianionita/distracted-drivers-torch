@@ -1,7 +1,7 @@
 -- Training function
 ---------------------------------------------
 
-function train(trainer,excluded_drivers, epoch, print_stats)
+function train(trainer,excluded_drivers, epoch, fold, print_stats)
     -- set up the confusion matrix
     confusion = optim.ConfusionMatrix(10)
     model = trainer.model
@@ -15,7 +15,7 @@ function train(trainer,excluded_drivers, epoch, print_stats)
 
 
     -- update on progress
-    print(c.blue '==>'.." Traioning without:" .. string_drivers(excluded_drivers) .. " epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']')
+    print(c.blue '==>'.." Traioning fold" .. fold .. "/" .. opt.n_folds .. " without:" .. string_drivers(excluded_drivers) .. " epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']')
 
 
     -- get a set of batches of indices that don't include the excluded driver
@@ -84,9 +84,8 @@ function train(trainer,excluded_drivers, epoch, print_stats)
     -- update confusion matrix
     confusion:updateValids()
     if print_stats then
-        print(('Train accuracy: '..c.cyan'%.2f'..' %%\t time: %.2f s'):format(
-            confusion.totalValid * 100, torch.toc(tic)))
-        print(('Train     loss: '..c.cyan'%.6f'):format(total_loss/train_n))
+        print(('Train accuracy: '..c.cyan'%.2f\tloss: '.. c.cyan'%.6f'.. '\t%%\t time: %.2f s'):format(
+            confusion.totalValid * 100, torch.toc(tic),total_loss/train_n))
     end
 
     train_acc = confusion.totalValid * 100

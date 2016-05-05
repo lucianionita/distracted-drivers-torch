@@ -157,11 +157,10 @@ for epoch = 1,opt.max_epoch do
 	print (c.blue"Training epoch " .. epoch .. c.blue "  ---------------------------------")
 
 	for fold = 1,opt.n_folds do
-		print ("Training epoch " .. epoch .. " fold " .. fold .. "/"..opt.n_folds)
 
 		trainer = trainers[fold]
 		-- train each model one epoch
-		train(trainer, trainer.excluded_drivers, epoch, true)
+		train(trainer, trainer.excluded_drivers, epoch, fold, true)
 	end
 
 
