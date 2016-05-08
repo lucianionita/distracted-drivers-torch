@@ -12,7 +12,6 @@ model:add(nn.SpatialMaxPooling(2,2,2,2))
 local n = 32*64*48/4/4
 model:add(nn.View(n))
 model:add(nn.Linear(n, 10))
---model:add(nn.LogSoftMax())
 model:add(nn.SoftMax())
 
 --[[initialization from MSR

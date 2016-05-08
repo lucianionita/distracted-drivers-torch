@@ -59,7 +59,6 @@ opt = lapp[[
  	--backend (default cudnn) 			backend to be used nn/cudnn
  	--type (default cuda) 				cuda/float/cl
 	
-
 	-v,--validation (default 6) 			number of drivers to use in validation set
 ]]
 
@@ -154,7 +153,7 @@ end
 
 for epoch = 1,opt.max_epoch do
 	
-	print (c.blue"=====>" .. " Epoch " .. epoch .. c.blue " ================================================================")
+	print (c.blue"=====>" .. " Epoch " .. epoch .. c.blue " <================================================================")
 
 	
 	local total_train_acc = 0
@@ -178,7 +177,7 @@ for epoch = 1,opt.max_epoch do
         print(('Train accuracy: '..c.cyan'%.2f' .. '\tloss: '.. c.cyan'%.6f'):format(acc * 100, loss))
 		
 		-- validate one epoch		
-		acc, loss, n = validate(trainers[fold].model, trainers[fold].excluded_drivers, false, false, false)
+		acc, loss, n = validate(trainers[fold].model, trainers[fold].excluded_drivers, false, false, true)
 		total_valid_acc = total_valid_acc + acc * n
 		total_valid_loss = total_valid_loss + loss * n
         print(('Valid accuracy: '..c.green'%.2f' .. '\tloss: '.. c.green'%.6f' ):format(acc * 100, loss))
@@ -196,7 +195,6 @@ for epoch = 1,opt.max_epoch do
 		
 		* Note, should account for when a class is excluded from multiple folds
 	]]
-
 
 	--print (c.blue"Logging epoch " .. epoch .. c.blue " ---------------")
 	--[[ TODO Logging should consist of
