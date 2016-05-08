@@ -79,10 +79,10 @@ function Provider:__init(folder, n_max, height, width, load_test_images)
 
 	-- Get the test image files
 	k = n_max * 10
-	for file in paths.files(folder .. '/test/') do		
+	for file in paths.files(folder .. '/train/') do		
 		-- Avoid non-image files
 		if file:find('jpg') then
-			table.insert(self.test_files, paths.concat(folder .. '/test/', file))
+			table.insert(self.test_files, paths.concat(folder .. '/train/', file))
 			k = k - 1
 			if k == 0 then
 				break
@@ -121,8 +121,6 @@ function Provider:__init(folder, n_max, height, width, load_test_images)
 
 	
 
-	print (c.blue"Transforming tables to tensors")
-	
 	lbls = torch.Tensor(table.getn(self.labels))
 	for i, l in ipairs(self.labels) do
 		lbls[i] = l
