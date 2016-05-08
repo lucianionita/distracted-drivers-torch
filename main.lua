@@ -24,7 +24,7 @@ require ('nn-aux')
 require ('dd-aux')
 require ('trainer')
 require ('train')
-require ('submission')
+require ('submission2')
 require ('validate')
 
 

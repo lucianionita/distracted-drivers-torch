@@ -31,6 +31,19 @@ function get_trainer()
         learningRateDecay = opt.learningRateDecay,
     }
 
+	-- get the pre-final layer, the one that feeds into the softmax
+	-- NOTE this is a pretty hacky way to do it and will break if 
+	--		using model architectures that are more strange
+	m = model
+	p = nil
+	while m.__typename ~= "nn.SoftMax" do
+		s = m:size()
+		p = m:get(s-1)
+		m = m:get(s)
+	end
+
+	pre_final_layer = p 
+
     trainer = {}
 
     trainer.model = model
@@ -38,6 +51,8 @@ function get_trainer()
     trainer.gParams = gradParameters
     trainer.criterion = criterion
     trainer.optimState = optimState
+
+	trainer.pre_final_layer = pre_final_layer
 
     return trainer
 end

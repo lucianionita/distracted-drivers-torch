@@ -76,7 +76,7 @@ function train(trainer,excluded_drivers, epoch, fold, verbose, print_stats)
 
         -- one iteration of the optimizer
         if opt.trainAlgo == 'sgd' then
-                optim.sgd(feval, parameters, optimState)
+            optim.sgd(feval, parameters, optimState)
         elseif opt.trainAlgo == 'adam' then
             optim.adam(feval, parameters, optimState)
         end
