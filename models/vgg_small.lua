@@ -54,7 +54,7 @@ local function MSRinit(net)
   init'nn.SpatialConvolution'
 end
 
-MSRinit(vgg)
+--MSRinit(vgg)
 
 -- check that we can propagate forward without errors
 -- should get 16x10 tensor

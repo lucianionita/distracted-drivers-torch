@@ -34,7 +34,7 @@ function create_submission(trainers)
 				--print (i,agg_outputs:transpose(1,2))
         end
         -- geometric mean
-        agg_outputs = nn.SoftMax():forward(agg_outputs / #trainers)
+        agg_outputs = cudnn.SoftMax():forward(agg_outputs / #trainers)
 
         -- fix for batchsize 1 
         if bs == 1 then

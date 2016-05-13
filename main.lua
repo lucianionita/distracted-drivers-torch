@@ -24,7 +24,7 @@ require ('nn-aux')
 require ('dd-aux')
 require ('trainer')
 require ('train')
-require ('submission4')
+require ('submission6')
 require ('validate')
 
 
@@ -184,8 +184,8 @@ for epoch = 1,opt.max_epoch do
 	
 	end
 
-    print((c.Magenta"==>" .. ' Epoch Train accuracy: '..c.Magenta'%.2f%%' .. '\tloss: '.. c.Magenta'%.6f'.. ''):format(total_train_acc * 100 / (1.0*train_n), total_train_loss/train_n))
-    print((c.Magenta"==>" .. ' Epoch Valid accuracy: '..c.Magenta'%.2f%%' .. '\tloss: '.. c.Magenta'%.6f'.. ''):format(total_valid_acc * 100 / (1.0*provider.data_n), total_valid_loss/provider.data_n))
+    print((c.Magenta"==>" .. ' Epoch '.. epoch ..' Train accuracy: '..c.Magenta'%.2f%%' .. '\tloss: '.. c.Magenta'%.6f'.. ''):format(total_train_acc * 100 / (1.0*train_n), total_train_loss/train_n))
+    print((c.Magenta"==>" .. ' Epoch '.. epoch ..' Valid accuracy: '..c.Magenta'%.2f%%' .. '\tloss: '.. c.Magenta'%.6f'.. ''):format(total_valid_acc * 100 / (1.0*provider.data_n), total_valid_loss/provider.data_n))
 
 	--[[ TODO Validation should print out:
 		- Each model's accuracy / loss on its validation set

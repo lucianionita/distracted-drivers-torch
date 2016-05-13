@@ -3,3 +3,6 @@ models/*.net
 submission.csv
 .*.swp
 logs/*
+submissions
+submissions/*
+notes
