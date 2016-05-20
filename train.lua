@@ -61,7 +61,7 @@ function train(trainer,excluded_drivers, epoch, fold, verbose, print_stats)
                 model:backward(inputs, df_do)
                 confusion:batchAdd(outputs, targets)
 
-
+		-- TODO:; fix this, I don't remember why i removed it in the first place
                 --print("1for")         
                 L2 = 0--torch.norm(parameters)
                 L1 = 0--torch.sum(torch.abs(parameters))

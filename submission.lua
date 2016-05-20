@@ -24,16 +24,18 @@ function create_submission(trainers)
 
         -- get the outputs
         local agg_outputs = cast(torch.Tensor(bs, 10))
-		agg_outputs[{}]=1
+		agg_outputs[{}]=0
         for i, trainer in pairs(trainers) do
 
                 local outputs = trainer.model:forward(inputs)
-                agg_outputs = torch.cmul(agg_outputs, outputs)
+				outputs[outputs:lt(1e-5)] = 1e-5
+                agg_outputs = agg_outputs + outputs
 				--print (i,outputs:transpose(1,2))
 				--print (i,agg_outputs:transpose(1,2))
         end
         -- geometric mean
-        agg_outputs = torch.pow(agg_outputs, 1/#trainers)
+        --agg_outputs = torch.pow(agg_outputs, 1/#trainers)
+		agg_outputs = agg_outputs / #trainers
 
         -- fix for batchsize 1 
         if bs == 1 then
