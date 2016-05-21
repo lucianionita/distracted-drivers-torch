@@ -1,5 +1,7 @@
 require 'nn'
 
+-- ndo stands for no dropout
+
 local vgg = nn.Sequential()
 
 -- building block
@@ -30,6 +32,7 @@ ConvBNReLU(128,128, 1, 1)
 
 vgg:add(nn.View(128*32*24/4/4))
 vgg:add(nn.Linear(128*32*24/4/4, 128))
+vgg:add(nn.Tanh())
 vgg:add(nn.Dropout(0.5))
 vgg:add(nn.Linear(128, 10))
 vgg:add(nn.SoftMax())

@@ -9,6 +9,7 @@ function train(trainer,excluded_drivers, epoch, fold, verbose, print_stats)
     gradParameters = trainer.gParams
     criterion = trainer.criterion
     optimState = trainer.optimState
+    numParams = parameters:size(1)
     -- excluded_driver is an index, between 1 and 26 inclusive
     model:training()
 
@@ -61,17 +62,24 @@ function train(trainer,excluded_drivers, epoch, fold, verbose, print_stats)
                 model:backward(inputs, df_do)
                 confusion:batchAdd(outputs, targets)
 
-		-- TODO:; fix this, I don't remember why i removed it in the first place
-                --print("1for")         
-                L2 = 0--torch.norm(parameters)
-                L1 = 0--torch.sum(torch.abs(parameters))
-                --print (f, L1, L2, f+opt.L1*L1+opt.L2*L2)
+                -- TODO: test this, it's experimental               
+                L2 = torch.norm(parameters)  /  numParams
+                L1 = torch.sum(torch.abs(parameters)) / numParams
+                -- TODO: monitor L1,L2 norms print (f, L1, L2, f+opt.L1*L1+opt.L2*L2)
+
+		if opt.batchStats then
+	                print ("L1=" .. L1 .. "  L2=" .. L2 .. "  l=" .. f )	
+		end
                 f = f + opt.L2 * L2
                 f = f + opt.L1 * L1
 
+                gradParameters:add(opt.L2 * 2, parameters)
+                gradParameters:add(opt.L1, torch.sign(parameters))
+
 
                 -- return criterion output and gradient of the parameters
-                return f, gradParameters--(gradParameters + opt.L2 * 2 * parameters + opt.L1 * torch.sign(parameters))
+                return f, gradParameters
+
             end
 
         -- one iteration of the optimizer
