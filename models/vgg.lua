@@ -36,7 +36,7 @@ vgg:add(nn.Dropout(0.5))
 
 vgg:add(nn.View(128*64*48/4/4))
 vgg:add(nn.Linear(128*64*48/4/4, 128))
-vgg:add(nn.Sigmoid())
+vgg:add(nn.Tanh())
 vgg:add(nn.Dropout(0.5))
 vgg:add(nn.Linear(128, 10))
 vgg:add(nn.SoftMax())

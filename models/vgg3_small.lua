@@ -16,13 +16,7 @@ end
 -- space as we can
 local MaxPooling = nn.SpatialMaxPooling
 
-ConvBNReLU(3,32, 1, 1)
-vgg:add(nn.Dropout(0.5))
-
-ConvBNReLU(32,32, 1, 1)
-vgg:add(nn.Dropout(0.5))
-
-ConvBNReLU(32,64, 2, 2)
+ConvBNReLU(3,64, 1, 1)
 vgg:add(nn.Dropout(0.5))
 
 ConvBNReLU(64,64, 1, 1)
@@ -34,8 +28,20 @@ vgg:add(nn.Dropout(0.5))
 ConvBNReLU(128,128, 1, 1)
 vgg:add(nn.Dropout(0.5))
 
-vgg:add(nn.View(128*32*24/4/4))
-vgg:add(nn.Linear(128*32*24/4/4, 128))
+ConvBNReLU(128,256, 2, 2)
+vgg:add(nn.Dropout(0.5))
+
+ConvBNReLU(256,256, 1, 1)
+vgg:add(nn.Dropout(0.5))
+
+ConvBNReLU(256,512, 1, 1)
+vgg:add(nn.Dropout(0.5))
+
+ConvBNReLU(512,512, 1, 1)
+vgg:add(nn.Dropout(0.5))
+
+vgg:add(nn.View(512*32*24/4/4))
+vgg:add(nn.Linear(512*32*24/4/4, 128))
 vgg:add(nn.Tanh())
 vgg:add(nn.Dropout(0.5))
 vgg:add(nn.Linear(128, 10))
@@ -56,9 +62,4 @@ local function MSRinit(net)
 end
 
 MSRinit(vgg)
-
--- check that we can propagate forward without errors
--- should get 16x10 tensor
---print(#vgg:cuda():forward(torch.CudaTensor(16,3,32,32)))
-
 return vgg

@@ -39,6 +39,7 @@ opt = lapp[[
 	--lr_schedule			(default 100)		learning rate reduction schedule, how many epochs between LR decreases
 	--lr_factor				(default 0.5)		learning rate reduction factor
 	
+	--batchStats					print L1, L2, loss stats for every batch
 	-s,--save 	(default "logs") 		subdirectory to save logs
 	-S,--submission						generate(overwrites) submission.csv file
 

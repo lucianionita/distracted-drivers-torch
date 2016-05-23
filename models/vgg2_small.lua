@@ -34,8 +34,14 @@ vgg:add(nn.Dropout(0.5))
 ConvBNReLU(128,128, 1, 1)
 vgg:add(nn.Dropout(0.5))
 
-vgg:add(nn.View(128*32*24/4/4))
-vgg:add(nn.Linear(128*32*24/4/4, 128))
+ConvBNReLU(128,256, 1, 1)
+vgg:add(nn.Dropout(0.5))
+
+ConvBNReLU(256,256, 1, 1)
+vgg:add(nn.Dropout(0.5))
+
+vgg:add(nn.View(256*32*24/4/4))
+vgg:add(nn.Linear(256*32*24/4/4, 128))
 vgg:add(nn.Tanh())
 vgg:add(nn.Dropout(0.5))
 vgg:add(nn.Linear(128, 10))
@@ -57,8 +63,6 @@ end
 
 MSRinit(vgg)
 
--- check that we can propagate forward without errors
--- should get 16x10 tensor
 --print(#vgg:cuda():forward(torch.CudaTensor(16,3,32,32)))
 
 return vgg
