@@ -14,7 +14,7 @@ require 'provider'
 require 'xlua'
 require 'optim'
 require 'nn'
-require 'provider'
+require 'dataloader'
 c = require 'trepl.colorize'
 torch.setdefaulttensortype('torch.FloatTensor')
 
@@ -39,7 +39,6 @@ opt = lapp[[
 	--lr_schedule			(default 100)		learning rate reduction schedule, how many epochs between LR decreases
 	--lr_factor				(default 0.5)		learning rate reduction factor
 	
-	--batchStats					print L1, L2, loss stats for every batch
 	-s,--save 	(default "logs") 		subdirectory to save logs
 	-S,--submission						generate(overwrites) submission.csv file
 
@@ -56,6 +55,16 @@ opt = lapp[[
 	--weightDecay 	(default 0.0005) 		weightDecay (use in SGD instead of L2)
 	-m,--momentum 	(default 0.9) 			momentum
 	--max_epoch 	(default 300) 			maximum number of iterations
+	
+	--nThreads		(default 2)				number of loader threads
+	--distort								use distortions
+	--dt_angle		(default 10)			distortion: angle of rotation in degrees
+	--dt_scale		(default 1.1)			distortion: max scale factor (zoom in/out)
+	--dt_stretch_x	(default 1.2)			distortion: max X stretch (ratio)
+	--dt_stretch_y	(default 1.2)			distortion: max Y stretch (ratio)
+	--dt_trans_x	(default 4)				distortion: max X translation (pixels)	
+	--dt_trans_y	(default 4)				distortion:	max Y translation (pixels)
+	
 
  	--backend (default cudnn) 			backend to be used nn/cudnn
  	--type (default cuda) 				cuda/float/cl
@@ -118,6 +127,10 @@ provider = torch.load(opt.datafile)
 provider.data = cast(provider.data)
 provider.labels = cast(provider.labels)
 
+-- Create the dataloader
+------------------------
+dataloader = DataLoader(opt, provider)
+
 
 -- Set up models/trainers
 -------------------------
@@ -154,7 +167,7 @@ end
 
 for epoch = 1,opt.max_epoch do
 	
-	print (c.blue"=====>" .. " Epoch " .. epoch .. c.blue " <================================================================")
+	print (c.blue"=====>" .. " Epoch " .. epoch .. c.blue " <===================================================================================================")
 
 	
 	local total_train_acc = 0
@@ -171,16 +184,17 @@ for epoch = 1,opt.max_epoch do
 		print(c.blue '==>'.." Training/validating on fold # " .. fold .. "/" .. opt.n_folds .. "\t (" .. string_drivers(trainer.excluded_drivers) .. ")\t epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']')
 
 		-- train each model one epoch
-		acc, loss, n = train(trainer, trainer.excluded_drivers, epoch, fold, false, false)
-		total_train_acc = total_train_acc + acc * n
-		total_train_loss = total_train_loss + loss * n 
+		train_acc, train_loss, n = train(trainer, trainer.excluded_drivers, epoch, fold, true, false, true)
+		total_train_acc = total_train_acc + train_acc * n
+		total_train_loss = total_train_loss + train_loss * n 
 		train_n = train_n + n
-        print(('Train accuracy: '..c.cyan'%.2f' .. '\tloss: '.. c.cyan'%.6f'):format(acc * 100, loss))
 		
 		-- validate one epoch		
 		acc, loss, n = validate(trainers[fold].model, trainers[fold].excluded_drivers, false, false, true)
 		total_valid_acc = total_valid_acc + acc * n
 		total_valid_loss = total_valid_loss + loss * n
+        
+		print(('Train accuracy: '..c.cyan'%.2f' .. '\tloss: '.. c.cyan'%.6f'):format(train_acc * 100, train_loss))
         print(('Valid accuracy: '..c.green'%.2f' .. '\tloss: '.. c.green'%.6f' ):format(acc * 100, loss))
 	
 	end
