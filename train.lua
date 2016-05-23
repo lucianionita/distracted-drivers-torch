@@ -93,8 +93,8 @@ function train(trainer,excluded_drivers, epoch, fold, verbose, print_stats, prin
 
 		-- print stats TODO add a command line optino for this
 		if verbose then
-			if (t % 10) == 0 then
-				print ("		                                                                                                                       \rMinibatch " .. t.. c.Blue"\tL1="  .. L1 .. c.Blue"\tL2=" ..  L2 .. c.Blue"\tl=" .. loss .. c.Blue"\tL1g=" .. L1g .. c.Blue"\tL2g=" .. L2g)
+			if (t % 100) == 0 then
+				print ("\r		                                                                                                                       \rMinibatch " .. t.. c.Blue"\tL1="  .. L1 .. c.Blue"\tL2=" ..  L2 .. c.Blue"\tl=" .. loss .. c.Blue"\tL1g=" .. L1g .. c.Blue"\tL2g=" .. L2g)
 			end
 		end
 

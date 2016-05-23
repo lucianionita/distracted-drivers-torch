@@ -23,7 +23,6 @@ torch.setdefaulttensortype('torch.FloatTensor')
 require ('nn-aux')
 require ('dd-aux')
 require ('trainer')
-require ('train')
 require ('submission')
 require ('validate')
 
@@ -32,9 +31,9 @@ require ('validate')
 -- Parse the command line arguments
 --------------------------------------
 opt = lapp[[
-	--model 	(default linear_logsoftmax) 	model name
-	-b,--batchSize 	(default 32) 			batch size
- 	-r,--learningRate 	(default 1) 		learning rate
+	--model 				(default linear_logsoftmax) 	model name
+	-b,--batchSize 			(default 32) 			batch size
+ 	-r,--learningRate 		(default 1) 		learning rate
  	--learningRateDecay 	(default 1e-7) 		learning rate decay
 	--lr_schedule			(default 100)		learning rate reduction schedule, how many epochs between LR decreases
 	--lr_factor				(default 0.5)		learning rate reduction factor
@@ -64,7 +63,8 @@ opt = lapp[[
 	--dt_stretch_y	(default 1.2)			distortion: max Y stretch (ratio)
 	--dt_trans_x	(default 4)				distortion: max X translation (pixels)	
 	--dt_trans_y	(default 4)				distortion:	max Y translation (pixels)
-	
+
+	--batchStats 							Stats after each batch	
 
  	--backend (default cudnn) 			backend to be used nn/cudnn
  	--type (default cuda) 				cuda/float/cl
@@ -77,7 +77,14 @@ if opt.backend == 'cudnn' then
 	   require 'cudnn'
 end
 
-
+if opt.distort then
+	-- TODO currently storing the data is inefficient
+	-- Provider's data should be on the CPU side and only sending it to the GPU after distortion
+	require ('train') 
+else
+	-- if not using distortion, this is a faster at loading the data 
+	require ('train_old')
+end
 
 
 
@@ -124,7 +131,9 @@ end
 ----------------------
 print (c.blue"Loading data...")
 provider = torch.load(opt.datafile)
-provider.data = cast(provider.data)
+if not opt.distort then
+	provider.data = cast(provider.data)
+end
 provider.labels = cast(provider.labels)
 
 -- Create the dataloader

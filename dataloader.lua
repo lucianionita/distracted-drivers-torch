@@ -1,3 +1,5 @@
+require 'cudnn'
+
 Threads = require 'threads'
 Threads.serialization('threads.sharedserialize')
 

@@ -35,8 +35,6 @@ function get_trainer()
 	-- NOTE this is a pretty hacky way to do it and will break if 
 	--		using model architectures that are more strange
 	m = model
-	print(m)
-	print (m:size())
 	p = nil
 	while m.__typename ~= "nn.SoftMax" and m.__typename ~= "cudnn.SoftMax" do
 		s = m:size()
