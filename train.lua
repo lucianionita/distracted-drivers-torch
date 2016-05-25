@@ -52,7 +52,6 @@ function train(trainer,excluded_drivers, epoch, fold, verbose, print_stats, prin
 
 
 
-
 				-- update stats
 				if loss == -1 then
 					loss = f
@@ -97,7 +96,9 @@ function train(trainer,excluded_drivers, epoch, fold, verbose, print_stats, prin
 				print ("\r		                                                                                                                       \rMinibatch " .. t.. c.Blue"\tL1="  .. L1 .. c.Blue"\tL2=" ..  L2 .. c.Blue"\tl=" .. loss .. c.Blue"\tL1g=" .. L1g .. c.Blue"\tL2g=" .. L2g)
 			end
 		end
-
+		if (t%100) == 0 then
+			collectgarbage()
+		end
 	end
 
 	-- update confusion matrix

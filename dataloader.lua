@@ -81,7 +81,7 @@ function DataLoader:getMinibatches(excluded_drivers)
 
     					targets = castopt(torch.FloatTensor(opt.batchSize), opt)
 						targets:copy(provider.labels:index(1,v))
-						return minibatch, targets
+						return castopt(minibatch, opt), targets
 					end,
 					function ( _minibatch_, _labels_ )
 						self.next_minibatch = _minibatch_
