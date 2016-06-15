@@ -78,7 +78,7 @@ function DataLoader:getMinibatches(excluded_drivers)
 											opt.dt_stretch_x, opt.dt_stretch_y, opt.dt_trans_x, opt.dt_trans_y)
 							end
 						end
-
+						-- TODO try to speed it up by returning only the :index() rather than creating new storage
     					targets = castopt(torch.FloatTensor(opt.batchSize), opt)
 						targets:copy(provider.labels:index(1,v))
 						return castopt(minibatch, opt), targets

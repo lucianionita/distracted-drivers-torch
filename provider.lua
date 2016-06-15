@@ -1,6 +1,6 @@
 require 'nn'
 require 'image'
-
+require 'nn-aux'
 
 local c = require 'trepl.colorize'
 local Provider = torch.class 'Provider'
@@ -226,4 +226,15 @@ function Provider:normalize()
 		self:normalizeTestImages()
 	end
 
+end
+
+function Provider:create_distorted(opt)
+	distorted = self.data:clone()
+	for i = 1, self.data_n do
+		xlua.progress(i, self.data_n)
+	distorted[i] = distort(self.data[i], opt.dt_angle, opt.dt_scale,
+              opt.dt_stretch_x, opt.dt_stretch_y, opt.dt_trans_x, opt.dt_trans_y)
+
+	end
+	return distorted
 end

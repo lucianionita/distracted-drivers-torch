@@ -1,5 +1,4 @@
 -- To create a new data file, this is what you need to do:
--- TODO Verify submission method
 -- TODO Implement overcomplete crossval
 -- TODO Implement conf mat for ensemble model for validation set
 -- TODO Save models
@@ -78,12 +77,10 @@ if opt.backend == 'cudnn' then
 end
 
 if opt.distort then
-	-- TODO currently storing the data is inefficient
-	-- Provider's data should be on the CPU side and only sending it to the GPU after distortion
 	require ('train') 
 else
 	-- if not using distortion, this is a faster at loading the data 
-	require ('train_distinplace')
+	require ('train_old')
 end
 
 
@@ -161,13 +158,8 @@ for i = 1,opt.n_folds do
 			table.insert(included_drivers, j, j)
 		end
 	end
-	if opt.n_folds ~= 1 then
-		trainer.excluded_drivers = excluded_drivers
-		trainer.included_drivers = included_drivers
-	else
-		trainer.excluded_drivers = included_drivers
-		trainer.included_drivers = excluded_drivers
-	end
+	trainer.excluded_drivers = excluded_drivers
+	trainer.included_drivers = included_drivers
 	trainers[i] = trainer
 end
 
@@ -202,20 +194,14 @@ for epoch = 1,opt.max_epoch do
 		total_train_acc = total_train_acc + train_acc * n
 		total_train_loss = total_train_loss + train_loss * n 
 		train_n = train_n + n
-
-		if opt.n_folds ~= 1 then 
-
-			-- validate one epoch		
-			acc, loss, n = validate(trainers[fold].model, trainers[fold].excluded_drivers, false, false, true)
-			total_valid_acc = total_valid_acc + acc * n
-			total_valid_loss = total_valid_loss + loss * n
-		end   
-     
+		
+		-- validate one epoch		
+		acc, loss, n = validate(trainers[fold].model, trainers[fold].excluded_drivers, false, false, true)
+		total_valid_acc = total_valid_acc + acc * n
+		total_valid_loss = total_valid_loss + loss * n
+        
 		print(('Train accuracy: '..c.cyan'%.2f' .. '\tloss: '.. c.cyan'%.6f'):format(train_acc * 100, train_loss))
-
-		if opt.n_folds ~= 1 then
-	        print(('Valid accuracy: '..c.green'%.2f' .. '\tloss: '.. c.green'%.6f' ):format(acc * 100, loss))
-		end
+        print(('Valid accuracy: '..c.green'%.2f' .. '\tloss: '.. c.green'%.6f' ):format(acc * 100, loss))
 	
 	end
 
