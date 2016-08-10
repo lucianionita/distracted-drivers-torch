@@ -1,13 +1,23 @@
+require 'loadcaffe'
 -- Configure the model
 ------------------------------------
 function get_trainer()
 
-    -- configure model  
-    model = nn.Sequential()
-    model:add(cast(nn.Copy('torch.FloatTensor', torch.type(cast(torch.Tensor())))))
-    model:add(cast(dofile('models/'..opt.model..'.lua')))
-    model:get(2).updateGradInput = function(input) return end
+	if (opt.caffe_model ~= "none") then
 
+		model = loadcaffe.load('./models/'.. opt.caffe_model  ..'_deploy.prototxt', './models/'.. opt.caffe_model..'.caffemodel', 'cudnn')
+
+
+
+	else
+
+   		-- configure model  
+	    model = nn.Sequential()
+    	model:add(cast(nn.Copy('torch.FloatTensor', torch.type(cast(torch.Tensor())))))
+    	model:add(cast(dofile('models/'..opt.model..'.lua')))
+    	model:get(2).updateGradInput = function(input) return end
+
+	end
     -- cast to cudnn if necessary
     if opt.backend == 'cudnn' then
        cudnn.convert(model:get(2), cudnn)

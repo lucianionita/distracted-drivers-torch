@@ -25,52 +25,59 @@ require ('dd-aux')
 require ('trainer')
 require ('submission')
 require ('validate')
-
+require ('train2')
 
 
 -- Parse the command line arguments
 --------------------------------------
 opt = lapp[[
-	--model 				(default linear_logsoftmax) 	model name
-	-b,--batchSize 			(default 32) 			batch size
- 	-r,--learningRate 		(default 1) 		learning rate
- 	--learningRateDecay 	(default 1e-7) 		learning rate decay
-	--lr_schedule			(default 100)		learning rate reduction schedule, how many epochs between LR decreases
-	--lr_factor				(default 0.5)		learning rate reduction factor
+	--model 		(default linear_logsoftmax) 		model name
+	--caffe_model		(default none)				caffe model name to use
+	-b,--batchSize 		(default 32) 				batch size
+ 	-r,--learningRate 	(default 1) 				learning rate
+ 	--learningRateDecay 	(default 1e-7) 				learning rate decay
+	--lr_schedule		(default 100)				learning rate reduction schedule, how many epochs between LR decreases
+	--lr_factor		(default 0.5)				learning rate reduction factor
 	
-	-s,--save 	(default "logs") 		subdirectory to save logs
-	-S,--submission						generate(overwrites) submission.csv file
+	-s,--save 		(default "logs") 			subdirectory to save logs
+	-S,--submission							generate(overwrites) submission.csv file
+	--save_model		(default "saved_model.mdl")		file where to save the model
 
-	-f,--n_folds	(default 3)				number of folds to use
+
+	-f,--n_folds		(default 3)				number of folds to use
 	-g,--gen_data 				 			whether to generate data file 
-	-d,--datafile 	(default p.t7) 			file name of the data provider
-	-h,--height	(default 48)				height of the input images
-	-w,--width	(default 64)				width of the resized images
-	--L2		(default 0)					L2 norm
-	--L1		(default 0)					L1 norm
+	-d,--datafile 		(default p.t7) 				file name of the data provider
+	-h,--height		(default 48)				height of the input images
+	-w,--width		(default 64)				width of the resized images
+	--L2			(default 0)				L2 norm
+	--L1			(default 0)				L1 norm
 	--num_train		(default -1)				Artificially reduces training set (DEBUG)
 
-	-t,--trainAlgo	(default sgd)			training algorithm: sgd, adam
-	--weightDecay 	(default 0.0005) 		weightDecay (use in SGD instead of L2)
-	-m,--momentum 	(default 0.9) 			momentum
-	--max_epoch 	(default 300) 			maximum number of iterations
-	
-	--nThreads		(default 2)				number of loader threads
-	--distort								use distortions
-	--dt_angle		(default 10)			distortion: angle of rotation in degrees
-	--dt_scale		(default 1.1)			distortion: max scale factor (zoom in/out)
-	--dt_stretch_x	(default 1.2)			distortion: max X stretch (ratio)
-	--dt_stretch_y	(default 1.2)			distortion: max Y stretch (ratio)
-	--dt_trans_x	(default 4)				distortion: max X translation (pixels)	
-	--dt_trans_y	(default 4)				distortion:	max Y translation (pixels)
+	-T,--trainOne							train one model
+	-X,--exclude		(default "-1")				drivers to exclude
 
+	-t,--trainAlgo		(default sgd)				training algorithm: sgd, adam
+	--weightDecay 		(default 0.0005) 			weightDecay (use in SGD instead of L2)
+	-m,--momentum 		(default 0.9) 				momentum
+	--max_epoch 		(default 300) 				maximum number of iterations
+
+	-N,--normalize		(default yuv)				how to normalize the images (yuv,inception)	
+	--nThreads		(default 2)				number of loader threads
+	--distort							use distortions
+	--dt_angle		(default 10)				distortion: angle of rotation in degrees
+	--dt_scale		(default 1.1)				distortion: max scale factor (zoom in/out)
+	--dt_stretch_x		(default 1.2)				distortion: max X stretch (ratio)
+	--dt_stretch_y		(default 1.2)				distortion: max Y stretch (ratio)
+	--dt_trans_x		(default 4)				distortion: max X translation (pixels)	
+	--dt_trans_y		(default 4)				distortion:	max Y translation (pixels)
+	
 	--batchStats 							Stats after each batch	
 
- 	--backend (default cudnn) 			backend to be used nn/cudnn
- 	--type (default cuda) 				cuda/float/cl
+ 	--backend 		(default cudnn) 			backend to be used nn/cudnn
+ 	--type 			(default cuda) 				cuda/float/cl
 	
-	-v,--validation (default 6) 			number of drivers to use in validation set
-]]
+	-v,--validation 	(default 6) 				number of drivers to use in validation set
+]]	
 
 
 if opt.backend == 'cudnn' then
@@ -116,7 +123,11 @@ if opt.gen_data then
 	num_train = -1
 	provider = Provider("/home/tc/data/distracted-drivers/", opt.num_train, 
 				height, width, load_test_set)
-	provider:normalize()
+	if opt.normalize == "yuv" then
+		provider:normalize()
+	else
+		provider:normalize_inception()
+	end
 	
 	-- Because lua is ONE-indexed
 	provider.labels = provider.labels+1
@@ -139,6 +150,25 @@ provider.labels = cast(provider.labels)
 -- Create the dataloader
 ------------------------
 dataloader = DataLoader(opt, provider)
+
+
+
+
+
+if opt.trainOne then
+---------------------
+-- Train One Model ---------------------------------------------------------------------------------------------
+---------------------
+
+
+	train2()
+
+
+
+
+else
+
+
 
 
 -- Set up models/trainers
@@ -264,7 +294,7 @@ for epoch = 1,opt.max_epoch do
 end
 
 
-
+end
 
 
 

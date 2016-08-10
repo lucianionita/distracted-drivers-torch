@@ -185,7 +185,33 @@ function Provider:normalizeTestImages()
 end
 
 
-function Provider:normalize()
+function Provider:normalizeTestImages_inception()
+
+	print (c.blue"Normalizing images for Inception")
+
+	testData = self.test
+
+	testData:float()
+
+	testData = testData:mul(255):clamp(0,255):add(-117); 
+
+end
+function Provider:normalize_inception()
+
+	print (c.blue"Normalizing images for Inception")
+
+	trainData = self.data
+
+	trainData:float()
+
+	trainData = trainData:mul(255):clamp(0,255):add(-117); 
+
+	if self.load_test_images then
+		self:normalizeTestImages_inception()
+	end
+end
+
+function Provider:normalize_yuv()
   -- TODO: normalize by taking the test images into consideration as well
   print (c.blue"Normalizing images")
 

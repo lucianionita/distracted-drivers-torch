@@ -1,5 +1,6 @@
 *.t7
 models/*.net
+models/*.mdl
 submission.csv
 .*.swp
 logs/*
@@ -8,5 +9,13 @@ submissions/*
 notes
 experiments
 experiments/*
+saved_models
+saved_models/*
+task_log
+task_queue
+task_log/*
+task_queue/*
+models.trained
+models.trained/*
 .exp*
 

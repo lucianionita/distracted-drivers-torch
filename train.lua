@@ -47,6 +47,9 @@ function train(trainer,excluded_drivers, epoch, fold, verbose, print_stats, prin
 				local f = criterion:forward(outputs, targets)
 				local df_do = criterion:backward(outputs, targets)
 				total_loss = total_loss + f * opt.batchSize
+				model = model:cuda()
+				inputs = inputs:cuda()
+				df_do = df_do:cuda()
 				model:backward(inputs, df_do)
 				confusion:batchAdd(outputs, targets)
 
