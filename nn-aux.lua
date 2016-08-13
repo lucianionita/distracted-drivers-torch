@@ -1,4 +1,4 @@
-
+require 'image'
 
 -- method to change the type of the data, models etc 
 function cast(t)
@@ -61,6 +61,7 @@ function distort(img, degrees, zoom_ratio, stretch_x, stretch_y, translate_x, tr
 		stretch_y_ratio = 1 / stretch_y_ratio
 	end
 
+	print(img)
 	-- scale and stretch
 	local target_width = math.floor(width * zoom_ratio * stretch_x_ratio)
 	local target_height = math.floor(height * zoom_ratio * stretch_y_ratio)
